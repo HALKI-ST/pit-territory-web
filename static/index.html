@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>落とし穴陣取りゲーム</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Online Trap Duel</p>
+        <h1>落とし穴陣取りゲーム</h1>
+        <p class="intro">
+          5x5の盤面で足跡を増やしながら、落とし穴と一度きりのジャンプで相手を出し抜く、2人用のオンライン対戦ゲームです。
+        </p>
+      </div>
+      <div class="lobby-card">
+        <div class="field">
+          <label for="nameInput">名前</label>
+          <input id="nameInput" maxlength="24" placeholder="プレイヤー名">
+        </div>
+        <div class="actions">
+          <button id="createRoomButton" class="primary">ルームを作る</button>
+        </div>
+        <div class="join-row">
+          <input id="roomCodeInput" maxlength="6" placeholder="ルームID">
+          <button id="joinRoomButton">参加する</button>
+        </div>
+        <p id="lobbyStatus" class="status-line">ルームを作るか、友達のルームIDを入力して参加してください。</p>
+      </div>
+    </section>
+
+    <section id="gameSection" class="game hidden">
+      <div class="game-topbar">
+        <div>
+          <p class="eyebrow">Room</p>
+          <h2 id="roomCodeLabel">------</h2>
+        </div>
+        <div class="topbar-actions">
+          <button id="copyRoomButton">ルームIDをコピー</button>
+          <button id="leaveRoomButton">ルームを出る</button>
+        </div>
+      </div>
+
+      <div class="arena">
+        <div class="board-wrap">
+          <div id="board" class="board"></div>
+          <p id="modeBanner" class="mode-banner">通常移動モード</p>
+        </div>
+
+        <aside class="side-panel">
+          <div class="panel-block">
+            <p class="eyebrow">あなた</p>
+            <h3 id="youAre">-</h3>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ゲーム状況</p>
+            <p id="turnLabel" class="big-line">待機中...</p>
+            <p id="messageLabel" class="message-box">ルームに接続するとここに状況が表示されます。</p>
+            <p id="winnerLabel" class="winner-line"></p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">行動</p>
+            <div class="action-grid">
+              <button id="moveModeButton" class="primary">移動</button>
+              <button id="jumpModeButton">ジャンプ</button>
+              <button id="pitModeButton">落とし穴</button>
+              <button id="passButton" class="danger">行動終了</button>
+            </div>
+            <p class="microcopy">移動とジャンプは矢印キー、落とし穴は盤面クリックで使います。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">プレイヤー情報</p>
+            <div id="playersPanel" class="players-panel"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

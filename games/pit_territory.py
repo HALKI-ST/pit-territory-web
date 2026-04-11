@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -61,6 +62,7 @@ class PitTerritoryGame:
             "X": PlayerState("X", "Player X", (BOARD_SIZE - 1, BOARD_SIZE - 1)),
         }
         self.turn = "O"
+        self.start_symbol: Optional[str] = None
         self.pits: Set[Cell] = set()
         self.started = False
         self.game_over = False
@@ -71,10 +73,47 @@ class PitTerritoryGame:
         cleaned = name.strip() or f"Player {symbol}"
         self.players[symbol].name = cleaned[:24]
 
+    def set_start_player(self, start_choice: str) -> None:
+        if self.started and not self.game_over:
+            raise GameError("ゲーム中は先手を変更できません。")
+
+        if start_choice == "random":
+            self.start_symbol = random.choice(["O", "X"])
+        elif start_choice in {"O", "X"}:
+            self.start_symbol = start_choice
+        else:
+            raise GameError("先手の指定が正しくありません。")
+
+        self.turn = self.start_symbol
+        if self.can_start():
+            self.start_game()
+        else:
+            player = self.players[self.start_symbol]
+            self.message = f"{player.name}（{self.start_symbol}）を先手に設定しました。もう1人の参加を待っています。"
+
+    def can_start(self) -> bool:
+        return all(player.name for player in self.players.values()) and self.start_symbol in {"O", "X"}
+
     def start_if_ready(self) -> None:
-        if all(player.name for player in self.players.values()):
-            self.started = True
-            self.message = f"{self.players[self.turn].name}（{self.turn}）の手番です。"
+        if self.can_start():
+            self.start_game()
+        elif all(player.name for player in self.players.values()):
+            self.message = "両者そろいました。部屋を作った人が先手を決めてください。"
+
+    def start_game(self) -> None:
+        self.started = True
+        self.game_over = False
+        self.turn = self.start_symbol or "O"
+        self.message = f"{self.players[self.turn].name}（{self.turn}）の手番です。"
+
+    def reset_for_rematch(self) -> None:
+        saved_names = {symbol: player.name for symbol, player in self.players.items()}
+        saved_connections = {symbol: player.connected for symbol, player in self.players.items()}
+        self.__init__()
+        for symbol in ["O", "X"]:
+            self.players[symbol].name = saved_names[symbol]
+            self.players[symbol].connected = saved_connections[symbol]
+        self.message = "再戦の準備ができました。部屋を作った人が先手を決めてください。"
 
     def in_bounds(self, cell: Cell) -> bool:
         x, y = cell
@@ -223,7 +262,7 @@ class PitTerritoryGame:
             self.winner_text = f"{self.players['X'].name} の勝ちです。 {x_score} 対 {o_score}"
         else:
             self.winner_text = f"引き分けです。 {o_score} 対 {x_score}"
-        self.message = "ゲーム終了です。"
+        self.message = "ゲーム終了です。再戦するなら「もう一度遊ぶ」を押してください。"
 
     @staticmethod
     def cell_label(cell: Cell) -> str:
@@ -246,6 +285,7 @@ class PitTerritoryGame:
             "title": self.title,
             "board_size": BOARD_SIZE,
             "turn": self.turn,
+            "start_symbol": self.start_symbol,
             "started": self.started,
             "game_over": self.game_over,
             "message": self.message,

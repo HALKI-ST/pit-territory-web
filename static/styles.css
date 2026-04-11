@@ -175,6 +175,10 @@ button.danger {
   color: var(--muted);
 }
 
+.hidden {
+  display: none !important;
+}
+
 .game.hidden {
   display: none;
 }

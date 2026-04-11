@@ -21,6 +21,9 @@ const winnerLabelEl = document.getElementById("winnerLabel");
 const playersPanelEl = document.getElementById("playersPanel");
 const youAreEl = document.getElementById("youAre");
 const modeBannerEl = document.getElementById("modeBanner");
+const startPanelEl = document.getElementById("startPanel");
+const startPanelNoteEl = document.getElementById("startPanelNote");
+const rematchPanelEl = document.getElementById("rematchPanel");
 
 function playerName() {
   return document.getElementById("nameInput").value.trim();
@@ -42,6 +45,10 @@ function actionLabel(action) {
     pass: "行動終了",
   };
   return labels[action] || "-";
+}
+
+function isHost(game) {
+  return Boolean(game) && game.host_symbol === state.playerSymbol;
 }
 
 function setMode(mode) {
@@ -201,10 +208,14 @@ function sendAction(action) {
     messageLabelEl.textContent = "サーバーに接続できていません。";
     return;
   }
-  if (!state.gameState || state.gameState.turn !== state.playerSymbol) {
-    messageLabelEl.textContent = "いまはあなたの手番ではありません。";
-    return;
+
+  if (action.action !== "set_start_player" && action.action !== "rematch") {
+    if (!state.gameState || state.gameState.turn !== state.playerSymbol) {
+      messageLabelEl.textContent = "いまはあなたの手番ではありません。";
+      return;
+    }
   }
+
   state.socket.send(JSON.stringify({ type: "action", ...action }));
 }
 
@@ -233,20 +244,28 @@ function render() {
   }
 
   const game = state.gameState;
-  const myTurn = game.turn === state.playerSymbol;
   const myPlayer = currentPlayerState();
+  const host = isHost(game);
+  const showStartPanel = !game.started;
+  const showRematchPanel = game.game_over;
 
   gameTitleLabelEl.textContent = game.title || "ゲーム";
   turnLabelEl.textContent = game.game_over
     ? "ゲーム終了"
     : game.started
       ? `手番: ${game.players[game.turn].name}（${game.turn}）`
-      : "対戦相手の参加待ち";
+      : "開始準備中";
   messageLabelEl.textContent = game.message;
   winnerLabelEl.textContent = game.winner_text || "";
 
+  startPanelEl.classList.toggle("hidden", !showStartPanel);
+  rematchPanelEl.classList.toggle("hidden", !showRematchPanel);
+  startPanelNoteEl.textContent = host
+    ? "あなたが先手を決められます。"
+    : "部屋を作った人が先手を決めています。";
+
   renderPlayers(game, myPlayer);
-  renderBoard(game, myTurn);
+  renderBoard(game);
 }
 
 function renderPlayers(game, myPlayer) {
@@ -255,11 +274,12 @@ function renderPlayers(game, myPlayer) {
     const player = game.players[symbol];
     const card = document.createElement("div");
     card.className = `player-card ${symbol.toLowerCase()}`;
-    const turnLine = game.turn === symbol && !game.game_over ? " / 手番" : "";
+    const turnLine = game.started && game.turn === symbol && !game.game_over ? " / 手番" : "";
     const youLine = symbol === state.playerSymbol ? " / あなた" : "";
+    const hostLine = symbol === game.host_symbol ? " / 部屋作成者" : "";
     const activeLine = myPlayer && symbol === state.playerSymbol ? ` / ジャンプ残り ${myPlayer.jumps_left}` : "";
     card.innerHTML = `
-      <strong>${player.name} (${symbol})${youLine}${turnLine}${activeLine}</strong>
+      <strong>${player.name} (${symbol})${youLine}${hostLine}${turnLine}${activeLine}</strong>
       <div>足跡数: ${player.score}</div>
       <div>落とし穴残り: ${player.pits_left}</div>
       <div>ジャンプ残り: ${player.jumps_left}</div>
@@ -271,8 +291,9 @@ function renderPlayers(game, myPlayer) {
   }
 }
 
-function renderBoard(game, myTurn) {
+function renderBoard(game) {
   boardEl.innerHTML = "";
+  const myTurn = game.turn === state.playerSymbol;
   const trailMap = new Map();
   const pitSet = new Set(game.pits.map(([x, y]) => `${x},${y}`));
 
@@ -310,7 +331,7 @@ function renderBoard(game, myTurn) {
           const piece = document.createElement("div");
           piece.className = `piece piece-${symbol.toLowerCase()}`;
           cell.appendChild(piece);
-          if (game.turn === symbol && !game.game_over) {
+          if (game.started && game.turn === symbol && !game.game_over) {
             cell.classList.add("active-turn");
           }
         }
@@ -353,6 +374,13 @@ document.getElementById("moveModeButton").addEventListener("click", () => setMod
 document.getElementById("jumpModeButton").addEventListener("click", () => setMode("jump"));
 document.getElementById("pitModeButton").addEventListener("click", () => setMode("pit"));
 document.getElementById("passButton").addEventListener("click", () => sendAction({ action: "pass" }));
+document.getElementById("startOButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "O" }));
+document.getElementById("startXButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "X" }));
+document.getElementById("startRandomButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "random" }));
+document.getElementById("rematchButton").addEventListener("click", () => {
+  setMode("move");
+  sendAction({ action: "rematch" });
+});
 
 bindDirectionButton("dirUpButton", "up");
 bindDirectionButton("dirDownButton", "down");

@@ -35,6 +35,7 @@ class Room:
     code: str
     game_type: str
     game: object
+    host_token: str
     token_to_symbol: Dict[str, str] = field(default_factory=dict)
     sockets: Dict[str, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -45,8 +46,18 @@ class Room:
             "room_code": self.code,
             "players_joined": len(self.token_to_symbol),
             "game_type": self.game_type,
+            "host_symbol": self.token_to_symbol.get(self.host_token, "O"),
             **state,
         }
+
+    def reset_game(self) -> None:
+        saved_names = {symbol: player.name for symbol, player in self.game.players.items()}
+        saved_connections = {symbol: player.connected for symbol, player in self.game.players.items()}
+        self.game = create_game(self.game_type)
+        for symbol in ["O", "X"]:
+            self.game.set_player_name(symbol, saved_names[symbol])
+            self.game.players[symbol].connected = saved_connections[symbol]
+        self.game.message = "再戦の準備ができました。部屋を作った人が先手を決めてください。"
 
 
 rooms: Dict[str, Room] = {}
@@ -111,8 +122,8 @@ async def create_room(payload: CreateRoomRequest) -> dict:
         raise HTTPException(status_code=400, detail="未対応のゲームです。") from exc
 
     room_code = generate_room_code()
-    room = Room(code=room_code, game_type=payload.game_type, game=game)
     token = create_token()
+    room = Room(code=room_code, game_type=payload.game_type, game=game, host_token=token)
     room.token_to_symbol[token] = "O"
     room.game.set_player_name("O", payload.name)
     rooms[room_code] = room
@@ -144,6 +155,11 @@ async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
     }
 
 
+def ensure_host(room: Room, player_token: str) -> None:
+    if room.host_token != player_token:
+        raise GameError("部屋を作った人だけがこの操作を行えます。")
+
+
 @app.websocket("/ws/{room_code}/{player_token}")
 async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token: str) -> None:
     room = rooms.get(room_code.upper())
@@ -157,27 +173,31 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token:
     async with room.lock:
         room.sockets[player_token] = websocket
         room.game.players[symbol].connected = True
-        if len(room.token_to_symbol) == 2:
-            room.game.start_if_ready()
+        room.game.start_if_ready()
         await broadcast_state(room)
 
     try:
         while True:
             payload = await websocket.receive_json()
             if payload.get("type") != "action":
-                await websocket.send_json(
-                    {"type": "error", "message": "対応していないメッセージです。"}
-                )
+                await websocket.send_json({"type": "error", "message": "対応していないメッセージです。"})
                 continue
 
             async with room.lock:
                 try:
-                    room.game.apply_action(
-                        symbol=symbol,
-                        action=payload.get("action", ""),
-                        direction=payload.get("direction"),
-                        cell=payload.get("cell"),
-                    )
+                    action = payload.get("action", "")
+                    if action == "set_start_player":
+                        ensure_host(room, player_token)
+                        room.game.set_start_player(payload.get("start_choice", ""))
+                    elif action == "rematch":
+                        room.reset_game()
+                    else:
+                        room.game.apply_action(
+                            symbol=symbol,
+                            action=action,
+                            direction=payload.get("direction"),
+                            cell=payload.get("cell"),
+                        )
                 except GameError as exc:
                     await websocket.send_json({"type": "error", "message": str(exc)})
                 else:

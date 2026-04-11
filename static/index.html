@@ -85,6 +85,16 @@
             <p id="winnerLabel" class="winner-line"></p>
           </div>
 
+          <div id="startPanel" class="panel-block hidden">
+            <p class="eyebrow">先手を決める</p>
+            <div class="action-grid">
+              <button id="startOButton" class="primary">O を先手</button>
+              <button id="startXButton" class="primary">X を先手</button>
+              <button id="startRandomButton">ランダム</button>
+            </div>
+            <p id="startPanelNote" class="microcopy">部屋を作った人が選べます。</p>
+          </div>
+
           <div class="panel-block">
             <p class="eyebrow">行動</p>
             <div class="action-grid">
@@ -94,6 +104,12 @@
               <button id="passButton" class="danger">行動終了</button>
             </div>
             <p class="microcopy">PCは矢印キー、スマホやタブレットは画面内の方向ボタンで操作できます。</p>
+          </div>
+
+          <div id="rematchPanel" class="panel-block hidden">
+            <p class="eyebrow">再戦</p>
+            <button id="rematchButton" class="primary">もう一度遊ぶ</button>
+            <p class="microcopy">同じ部屋で盤面をリセットして再戦します。</p>
           </div>
 
           <div class="panel-block">

@@ -93,6 +93,34 @@ body {
   gap: 8px;
 }
 
+.game-select {
+  display: grid;
+  gap: 10px;
+}
+
+.game-card {
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(118, 109, 96, 0.2);
+}
+
+.game-card.selected {
+  outline: 3px solid rgba(12, 92, 134, 0.25);
+  background: linear-gradient(135deg, rgba(220, 238, 246, 0.95), rgba(255, 255, 255, 0.78));
+}
+
+.game-card strong {
+  font-size: 1rem;
+}
+
+.game-card span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .join-row {
   grid-template-columns: 1fr auto;
   align-items: end;
@@ -162,6 +190,11 @@ button.danger {
 .game-topbar h2 {
   margin: 4px 0 0;
   font-size: 2rem;
+}
+
+.room-line {
+  margin: 8px 0 0;
+  color: var(--muted);
 }
 
 .topbar-actions {
@@ -274,6 +307,56 @@ button.danger {
   color: var(--muted);
 }
 
+.touch-panel {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(118, 109, 96, 0.18);
+}
+
+.touch-title {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(56px, 78px));
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dir-button {
+  min-height: 56px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(13, 98, 143, 0.95), rgba(47, 135, 175, 0.95));
+  color: white;
+}
+
+#dirUpButton {
+  grid-area: up;
+}
+
+#dirLeftButton {
+  grid-area: left;
+}
+
+#dirRightButton {
+  grid-area: right;
+}
+
+#dirDownButton {
+  grid-area: down;
+}
+
 .side-panel {
   padding: 22px;
   display: grid;
@@ -350,5 +433,13 @@ button.danger {
 
   .topbar-actions button {
     flex: 1;
+  }
+
+  .board {
+    gap: 8px;
+  }
+
+  .dir-button {
+    min-height: 60px;
   }
 }

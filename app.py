@@ -12,7 +12,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from game_logic import GameError, GameState
+from games import GAME_CATALOG, create_game
+from games.pit_territory import GameError
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -22,6 +23,7 @@ ROOM_CODE_CHARS = string.ascii_uppercase + string.digits
 
 class CreateRoomRequest(BaseModel):
     name: str = ""
+    game_type: str
 
 
 class JoinRoomRequest(BaseModel):
@@ -31,21 +33,24 @@ class JoinRoomRequest(BaseModel):
 @dataclass
 class Room:
     code: str
-    game: GameState
+    game_type: str
+    game: object
     token_to_symbol: Dict[str, str] = field(default_factory=dict)
     sockets: Dict[str, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def public_state(self) -> dict:
+        state = self.game.to_public_dict()
         return {
             "room_code": self.code,
             "players_joined": len(self.token_to_symbol),
-            **self.game.to_public_dict(),
+            "game_type": self.game_type,
+            **state,
         }
 
 
 rooms: Dict[str, Room] = {}
-app = FastAPI(title="Pit Territory Web")
+app = FastAPI(title="ST-SPACE Games")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -63,7 +68,7 @@ def create_token() -> str:
 def get_room_or_404(room_code: str) -> Room:
     room = rooms.get(room_code.upper())
     if room is None:
-        raise HTTPException(status_code=404, detail="\u30eb\u30fc\u30e0\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002")
+        raise HTTPException(status_code=404, detail="ルームが見つかりません。")
     return room
 
 
@@ -93,15 +98,30 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/games")
+async def games() -> dict:
+    return {"games": GAME_CATALOG}
+
+
 @app.post("/api/rooms")
 async def create_room(payload: CreateRoomRequest) -> dict:
+    try:
+        game = create_game(payload.game_type)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail="未対応のゲームです。") from exc
+
     room_code = generate_room_code()
-    room = Room(code=room_code, game=GameState())
+    room = Room(code=room_code, game_type=payload.game_type, game=game)
     token = create_token()
     room.token_to_symbol[token] = "O"
     room.game.set_player_name("O", payload.name)
     rooms[room_code] = room
-    return {"room_code": room_code, "player_token": token, "player_symbol": "O"}
+    return {
+        "room_code": room_code,
+        "player_token": token,
+        "player_symbol": "O",
+        "game_type": payload.game_type,
+    }
 
 
 @app.post("/api/rooms/{room_code}/join")
@@ -109,14 +129,19 @@ async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
     room = get_room_or_404(room_code)
 
     if len(room.token_to_symbol) >= 2:
-        raise HTTPException(status_code=400, detail="\u3053\u306e\u30eb\u30fc\u30e0\u306f\u6e80\u54e1\u3067\u3059\u3002")
+        raise HTTPException(status_code=400, detail="このルームは満員です。")
 
     token = create_token()
     room.token_to_symbol[token] = "X"
     room.game.set_player_name("X", payload.name)
     room.game.start_if_ready()
     await broadcast_state(room)
-    return {"room_code": room.code, "player_token": token, "player_symbol": "X"}
+    return {
+        "room_code": room.code,
+        "player_token": token,
+        "player_symbol": "X",
+        "game_type": room.game_type,
+    }
 
 
 @app.websocket("/ws/{room_code}/{player_token}")
@@ -141,7 +166,7 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token:
             payload = await websocket.receive_json()
             if payload.get("type") != "action":
                 await websocket.send_json(
-                    {"type": "error", "message": "\u5bfe\u5fdc\u3057\u3066\u3044\u306a\u3044\u30e1\u30c3\u30bb\u30fc\u30b8\u3067\u3059\u3002"}
+                    {"type": "error", "message": "対応していないメッセージです。"}
                 )
                 continue
 
@@ -161,5 +186,5 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token:
         async with room.lock:
             room.sockets.pop(player_token, None)
             room.game.players[symbol].connected = False
-            room.game.message = f"{room.game.players[symbol].name} \u304c\u5207\u65ad\u3057\u307e\u3057\u305f\u3002"
+            room.game.message = f"{room.game.players[symbol].name} が切断しました。"
             await broadcast_state(room)

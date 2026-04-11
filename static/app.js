@@ -2,13 +2,17 @@ const state = {
   roomCode: "",
   playerToken: "",
   playerSymbol: "",
+  selectedGameType: "",
   socket: null,
   gameState: null,
+  games: [],
   mode: "move",
 };
 
 const boardEl = document.getElementById("board");
 const gameSectionEl = document.getElementById("gameSection");
+const gameSelectEl = document.getElementById("gameSelect");
+const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
 const roomCodeLabelEl = document.getElementById("roomCodeLabel");
 const turnLabelEl = document.getElementById("turnLabel");
@@ -32,10 +36,10 @@ function setLobbyStatus(message) {
 
 function actionLabel(action) {
   const labels = {
-    move: "\u79fb\u52d5",
-    jump: "\u30b8\u30e3\u30f3\u30d7",
-    pit: "\u843d\u3068\u3057\u7a74",
-    pass: "\u884c\u52d5\u7d42\u4e86",
+    move: "移動",
+    jump: "ジャンプ",
+    pit: "落とし穴",
+    pass: "行動終了",
   };
   return labels[action] || "-";
 }
@@ -43,14 +47,23 @@ function actionLabel(action) {
 function setMode(mode) {
   state.mode = mode;
   const labels = {
-    move: "\u901a\u5e38\u79fb\u52d5\u30e2\u30fc\u30c9",
-    jump: "\u30b8\u30e3\u30f3\u30d7\u30e2\u30fc\u30c9: \u77e2\u5370\u30ad\u30fc\u3067\u65b9\u5411\u3092\u9078\u3073\u307e\u3059",
-    pit: "\u843d\u3068\u3057\u7a74\u30e2\u30fc\u30c9: \u76e4\u9762\u3092\u30af\u30ea\u30c3\u30af\u3057\u3066\u8a2d\u7f6e\u3057\u307e\u3059",
+    move: "通常移動モード",
+    jump: "ジャンプモード: 方向ボタンか矢印キーで方向を選びます",
+    pit: "落とし穴モード: 盤面をクリックして設置します",
   };
   modeBannerEl.textContent = labels[mode] || labels.move;
   if (state.gameState) {
     render();
   }
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || "読み込みに失敗しました。");
+  }
+  return payload;
 }
 
 async function postJson(url, body) {
@@ -62,16 +75,56 @@ async function postJson(url, body) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || "Request failed.");
+    throw new Error(payload.detail || "送信に失敗しました。");
   }
   return payload;
 }
 
-async function createRoom() {
+async function loadGames() {
   try {
-    const payload = await postJson("/api/rooms", { name: playerName() });
-    enterRoom(payload.room_code, payload.player_token, payload.player_symbol);
-    setLobbyStatus(`\u30eb\u30fc\u30e0 ${payload.room_code} \u3092\u4f5c\u6210\u3057\u307e\u3057\u305f\u3002\u53cb\u9054\u306b\u30eb\u30fc\u30e0ID\u3092\u5171\u6709\u3057\u3066\u304f\u3060\u3055\u3044\u3002`);
+    const payload = await fetchJson("/api/games");
+    state.games = payload.games || [];
+    if (!state.selectedGameType && state.games.length > 0) {
+      state.selectedGameType = state.games[0].game_type;
+    }
+    renderGameCards();
+  } catch (error) {
+    setLobbyStatus(error.message);
+  }
+}
+
+function renderGameCards() {
+  gameSelectEl.innerHTML = "";
+  for (const game of state.games) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `game-card ${state.selectedGameType === game.game_type ? "selected" : ""}`;
+    button.innerHTML = `
+      <strong>${game.title}</strong>
+      <span>${game.subtitle}</span>
+    `;
+    button.addEventListener("click", () => {
+      state.selectedGameType = game.game_type;
+      renderGameCards();
+    });
+    gameSelectEl.appendChild(button);
+  }
+}
+
+async function createRoom() {
+  if (!state.selectedGameType) {
+    setLobbyStatus("先にゲームを選んでください。");
+    return;
+  }
+
+  try {
+    const payload = await postJson("/api/rooms", {
+      name: playerName(),
+      game_type: state.selectedGameType,
+    });
+    enterRoom(payload.room_code, payload.player_token, payload.player_symbol, payload.game_type);
+    const selectedGame = state.games.find((game) => game.game_type === payload.game_type);
+    setLobbyStatus(`ルーム ${payload.room_code} を作成しました。${selectedGame ? selectedGame.title : "ゲーム"} のルームです。`);
   } catch (error) {
     setLobbyStatus(error.message);
   }
@@ -80,14 +133,14 @@ async function createRoom() {
 async function joinRoom() {
   const code = roomCodeInput();
   if (!code) {
-    setLobbyStatus("\u5148\u306b\u30eb\u30fc\u30e0ID\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044\u3002");
+    setLobbyStatus("先にルームIDを入力してください。");
     return;
   }
 
   try {
     const payload = await postJson(`/api/rooms/${code}/join`, { name: playerName() });
-    enterRoom(payload.room_code, payload.player_token, payload.player_symbol);
-    setLobbyStatus(`\u30eb\u30fc\u30e0 ${payload.room_code} \u306b\u53c2\u52a0\u3057\u307e\u3057\u305f\u3002`);
+    enterRoom(payload.room_code, payload.player_token, payload.player_symbol, payload.game_type);
+    setLobbyStatus(`ルーム ${payload.room_code} に参加しました。`);
   } catch (error) {
     setLobbyStatus(error.message);
   }
@@ -116,16 +169,17 @@ function connectSocket() {
   });
 
   state.socket.addEventListener("close", () => {
-    messageLabelEl.textContent = "\u30eb\u30fc\u30e0\u3068\u306e\u63a5\u7d9a\u304c\u5207\u308c\u307e\u3057\u305f\u3002";
+    messageLabelEl.textContent = "ルームとの接続が切れました。";
   });
 }
 
-function enterRoom(roomCode, token, symbol) {
+function enterRoom(roomCode, token, symbol, gameType) {
   state.roomCode = roomCode;
   state.playerToken = token;
   state.playerSymbol = symbol;
-  roomCodeLabelEl.textContent = roomCode;
-  youAreEl.textContent = `${symbol} \u30d7\u30ec\u30a4\u30e4\u30fc`;
+  state.selectedGameType = gameType;
+  roomCodeLabelEl.textContent = `ルームID: ${roomCode}`;
+  youAreEl.textContent = `${symbol} プレイヤー`;
   setMode("move");
   connectSocket();
 }
@@ -139,19 +193,31 @@ function leaveRoom() {
   state.playerSymbol = "";
   state.gameState = null;
   gameSectionEl.classList.add("hidden");
-  setLobbyStatus("\u30eb\u30fc\u30e0\u3092\u9000\u51fa\u3057\u307e\u3057\u305f\u3002");
+  setLobbyStatus("ルームを退出しました。");
 }
 
 function sendAction(action) {
   if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
-    messageLabelEl.textContent = "\u30b5\u30fc\u30d0\u30fc\u306b\u63a5\u7d9a\u3067\u304d\u3066\u3044\u307e\u305b\u3093\u3002";
+    messageLabelEl.textContent = "サーバーに接続できていません。";
     return;
   }
   if (!state.gameState || state.gameState.turn !== state.playerSymbol) {
-    messageLabelEl.textContent = "\u3044\u307e\u306f\u3042\u306a\u305f\u306e\u624b\u756a\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002";
+    messageLabelEl.textContent = "いまはあなたの手番ではありません。";
     return;
   }
   state.socket.send(JSON.stringify({ type: "action", ...action }));
+}
+
+function sendDirectionalAction(direction) {
+  if (!state.gameState || !state.gameState.started || state.gameState.game_over) {
+    return;
+  }
+
+  if (state.mode === "jump") {
+    sendAction({ action: "jump", direction });
+  } else {
+    sendAction({ action: "move", direction });
+  }
 }
 
 function currentPlayerState() {
@@ -170,11 +236,12 @@ function render() {
   const myTurn = game.turn === state.playerSymbol;
   const myPlayer = currentPlayerState();
 
+  gameTitleLabelEl.textContent = game.title || "ゲーム";
   turnLabelEl.textContent = game.game_over
-    ? "\u30b2\u30fc\u30e0\u7d42\u4e86"
+    ? "ゲーム終了"
     : game.started
-      ? `\u624b\u756a: ${game.players[game.turn].name}\uff08${game.turn}\uff09`
-      : "\u5bfe\u6226\u76f8\u624b\u306e\u53c2\u52a0\u5f85\u3061";
+      ? `手番: ${game.players[game.turn].name}（${game.turn}）`
+      : "対戦相手の参加待ち";
   messageLabelEl.textContent = game.message;
   winnerLabelEl.textContent = game.winner_text || "";
 
@@ -188,17 +255,17 @@ function renderPlayers(game, myPlayer) {
     const player = game.players[symbol];
     const card = document.createElement("div");
     card.className = `player-card ${symbol.toLowerCase()}`;
-    const turnLine = game.turn === symbol && !game.game_over ? " / \u624b\u756a" : "";
-    const youLine = symbol === state.playerSymbol ? " / \u3042\u306a\u305f" : "";
-    const activeLine = myPlayer && symbol === state.playerSymbol ? ` / \u30b8\u30e3\u30f3\u30d7\u6b8b\u308a ${myPlayer.jumps_left}` : "";
+    const turnLine = game.turn === symbol && !game.game_over ? " / 手番" : "";
+    const youLine = symbol === state.playerSymbol ? " / あなた" : "";
+    const activeLine = myPlayer && symbol === state.playerSymbol ? ` / ジャンプ残り ${myPlayer.jumps_left}` : "";
     card.innerHTML = `
       <strong>${player.name} (${symbol})${youLine}${turnLine}${activeLine}</strong>
-      <div>\u8db3\u8de1\u6570: ${player.score}</div>
-      <div>\u843d\u3068\u3057\u7a74\u6b8b\u308a: ${player.pits_left}</div>
-      <div>\u30b8\u30e3\u30f3\u30d7\u6b8b\u308a: ${player.jumps_left}</div>
-      <div>\u72b6\u614b: ${player.surrendered ? "\u884c\u52d5\u7d42\u4e86" : player.connected ? "\u63a5\u7d9a\u4e2d" : "\u30aa\u30d5\u30e9\u30a4\u30f3"}</div>
-      <div>\u524d\u56de\u884c\u52d5: ${actionLabel(player.last_action)}</div>
-      <div>\u4f4d\u7f6e: (${player.position[0] + 1}, ${player.position[1] + 1})</div>
+      <div>足跡数: ${player.score}</div>
+      <div>落とし穴残り: ${player.pits_left}</div>
+      <div>ジャンプ残り: ${player.jumps_left}</div>
+      <div>状態: ${player.surrendered ? "行動終了" : player.connected ? "接続中" : "オフライン"}</div>
+      <div>前回行動: ${actionLabel(player.last_action)}</div>
+      <div>位置: (${player.position[0] + 1}, ${player.position[1] + 1})</div>
     `;
     playersPanelEl.appendChild(card);
   }
@@ -265,6 +332,12 @@ function renderBoard(game, myTurn) {
   }
 }
 
+function bindDirectionButton(buttonId, direction) {
+  document.getElementById(buttonId).addEventListener("click", () => {
+    sendDirectionalAction(direction);
+  });
+}
+
 document.getElementById("createRoomButton").addEventListener("click", createRoom);
 document.getElementById("joinRoomButton").addEventListener("click", joinRoom);
 document.getElementById("leaveRoomButton").addEventListener("click", leaveRoom);
@@ -273,13 +346,18 @@ document.getElementById("copyRoomButton").addEventListener("click", async () => 
     return;
   }
   await navigator.clipboard.writeText(state.roomCode).catch(() => {});
-  setLobbyStatus(`\u30eb\u30fc\u30e0ID ${state.roomCode} \u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f\u3002`);
+  setLobbyStatus(`ルームID ${state.roomCode} をコピーしました。`);
 });
 
 document.getElementById("moveModeButton").addEventListener("click", () => setMode("move"));
 document.getElementById("jumpModeButton").addEventListener("click", () => setMode("jump"));
 document.getElementById("pitModeButton").addEventListener("click", () => setMode("pit"));
 document.getElementById("passButton").addEventListener("click", () => sendAction({ action: "pass" }));
+
+bindDirectionButton("dirUpButton", "up");
+bindDirectionButton("dirDownButton", "down");
+bindDirectionButton("dirLeftButton", "left");
+bindDirectionButton("dirRightButton", "right");
 
 window.addEventListener("keydown", (event) => {
   const keyMap = {
@@ -292,14 +370,9 @@ window.addEventListener("keydown", (event) => {
   if (!direction) {
     return;
   }
-  event.preventDefault();
-  if (!state.gameState || !state.gameState.started || state.gameState.game_over) {
-    return;
-  }
 
-  if (state.mode === "jump") {
-    sendAction({ action: "jump", direction });
-  } else {
-    sendAction({ action: "move", direction });
-  }
+  event.preventDefault();
+  sendDirectionalAction(direction);
 });
+
+loadGames();

@@ -1,6 +1,8 @@
-# Pit Territory Web
+# ST-SPACE Game Rooms
 
-Browser-based multiplayer version of the pit territory game using FastAPI and WebSocket.
+Browser-based multiplayer game room app using FastAPI and WebSocket.
+
+The app now supports a shared lobby where players choose a game first, then create or join a room. The first playable game is `落とし穴陣取りゲーム`.
 
 ## What You Need
 
@@ -48,9 +50,12 @@ No. This version uses room codes. One player creates a room and shares the code.
 ```text
 pit_territory_web/
   app.py
-  game_logic.py
   requirements.txt
   DESIGN.md
+  games/
+    __init__.py
+    registry.py
+    pit_territory.py
   static/
     index.html
     styles.css
@@ -59,11 +64,13 @@ pit_territory_web/
 
 ## Features
 
+- Shared lobby with game selection
 - 2-player room creation and join
 - Authoritative server-side rule validation
 - WebSocket live updates
-- 5x5 board rendering in the browser
-- Move, jump, pit, and pass actions
+- Selectable game metadata from the backend
+- 5x5 board rendering in the browser for the pit territory game
+- Move, jump, pit, and pass actions for the pit territory game
 - Room-code-based access
 - No login required
 
@@ -90,8 +97,19 @@ pit_territory_web/
 4. Test with two players:
 
 - Open the site in two browser tabs or two browsers.
-- Create a room in one tab.
+- Choose `落とし穴陣取りゲーム` and create a room in one tab.
 - Join the room from the other tab using the room code.
+
+## Adding Another Game
+
+To add the next game idea, the intended path is:
+
+1. Create a new file under `games/`
+2. Give it the same surface API as `PitTerritoryGame`
+3. Register it in `games/registry.py`
+4. Add any frontend rendering differences if the new game needs a different board or action UI
+
+The backend room system is now prepared for `game_type` selection per room.
 
 ## Deployment Later
 

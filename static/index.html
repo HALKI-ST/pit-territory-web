@@ -3,40 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>落とし穴陣取りゲーム</title>
+  <title>ST-SPACE Game Rooms</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <main class="shell">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Online Trap Duel</p>
-        <h1>落とし穴陣取りゲーム</h1>
+        <p class="eyebrow">ST-SPACE</p>
+        <h1>自作ゲーム部屋</h1>
         <p class="intro">
-          5x5の盤面で足跡を増やしながら、落とし穴と一度きりのジャンプで相手を出し抜く、2人用のオンライン対戦ゲームです。
+          ひとつのURLで、いろいろな自作ゲームを選んで遊べるようにしていく土台です。
+          まずは「落とし穴陣取りゲーム」を遊べます。
         </p>
       </div>
+
       <div class="lobby-card">
         <div class="field">
           <label for="nameInput">名前</label>
           <input id="nameInput" maxlength="24" placeholder="プレイヤー名">
         </div>
-        <div class="actions">
-          <button id="createRoomButton" class="primary">ルームを作る</button>
+
+        <div class="field">
+          <label>ゲームを選ぶ</label>
+          <div id="gameSelect" class="game-select"></div>
         </div>
+
+        <div class="actions">
+          <button id="createRoomButton" class="primary">このゲームでルームを作る</button>
+        </div>
+
         <div class="join-row">
           <input id="roomCodeInput" maxlength="6" placeholder="ルームID">
           <button id="joinRoomButton">参加する</button>
         </div>
-        <p id="lobbyStatus" class="status-line">ルームを作るか、友達のルームIDを入力して参加してください。</p>
+
+        <p id="lobbyStatus" class="status-line">遊びたいゲームを選んでからルームを作るか、友達のルームIDで参加してください。</p>
       </div>
     </section>
 
     <section id="gameSection" class="game hidden">
       <div class="game-topbar">
         <div>
-          <p class="eyebrow">Room</p>
-          <h2 id="roomCodeLabel">------</h2>
+          <p class="eyebrow">現在のゲーム</p>
+          <h2 id="gameTitleLabel">-</h2>
+          <p id="roomCodeLabel" class="room-line">------</p>
         </div>
         <div class="topbar-actions">
           <button id="copyRoomButton">ルームIDをコピー</button>
@@ -48,6 +59,17 @@
         <div class="board-wrap">
           <div id="board" class="board"></div>
           <p id="modeBanner" class="mode-banner">通常移動モード</p>
+
+          <div class="touch-panel">
+            <p class="touch-title">タップ操作</p>
+            <div class="dpad" aria-label="移動ボタン">
+              <button id="dirUpButton" class="dir-button" type="button" aria-label="上へ">↑</button>
+              <button id="dirLeftButton" class="dir-button" type="button" aria-label="左へ">←</button>
+              <button id="dirDownButton" class="dir-button" type="button" aria-label="下へ">↓</button>
+              <button id="dirRightButton" class="dir-button" type="button" aria-label="右へ">→</button>
+            </div>
+            <p class="microcopy">移動モードなら1マス移動、ジャンプモードなら2マスジャンプします。</p>
+          </div>
         </div>
 
         <aside class="side-panel">
@@ -71,7 +93,7 @@
               <button id="pitModeButton">落とし穴</button>
               <button id="passButton" class="danger">行動終了</button>
             </div>
-            <p class="microcopy">移動とジャンプは矢印キー、落とし穴は盤面クリックで使います。</p>
+            <p class="microcopy">PCは矢印キー、スマホやタブレットは画面内の方向ボタンで操作できます。</p>
           </div>
 
           <div class="panel-block">

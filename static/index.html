@@ -11,10 +11,10 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">ST-SPACE</p>
-        <h1>自作ゲーム部屋</h1>
+        <h1>オンラインゲーム部屋</h1>
         <p class="intro">
-          ひとつのURLで、いろいろな自作ゲームを選んで遊べるようにしていく土台です。
-          まずは「落とし穴陣取りゲーム」を遊べます。
+          ひとつのURLで、いくつもの自作ゲームを遊べる部屋です。
+          先にゲームを選び、ルームを作るか、友達から届いたルームIDで参加してください。
         </p>
       </div>
 
@@ -38,7 +38,9 @@
           <button id="joinRoomButton">参加する</button>
         </div>
 
-        <p id="lobbyStatus" class="status-line">遊びたいゲームを選んでからルームを作るか、友達のルームIDで参加してください。</p>
+        <p id="lobbyStatus" class="status-line">
+          遊びたいゲームを選んで部屋を作るか、招待されたルームIDで参加してください。
+        </p>
       </div>
     </section>
 
@@ -55,66 +57,238 @@
         </div>
       </div>
 
-      <div class="arena">
+      <div class="shared-status">
+        <div class="panel-block">
+          <p class="eyebrow">あなた</p>
+          <h3 id="youAre">-</h3>
+        </div>
+        <div class="panel-block">
+          <p class="eyebrow">ゲーム状況</p>
+          <p id="turnLabel" class="big-line">読み込み中...</p>
+          <p id="messageLabel" class="message-box">ルームに接続するとここに状況が表示されます。</p>
+          <p id="winnerLabel" class="winner-line"></p>
+        </div>
+      </div>
+
+      <div id="pitGameView" class="arena hidden">
         <div class="board-wrap">
           <div id="board" class="board"></div>
           <p id="modeBanner" class="mode-banner">通常移動モード</p>
 
           <div class="touch-panel">
-            <p class="touch-title">タップ操作</p>
+            <p class="touch-title">スマホ操作</p>
             <div class="dpad" aria-label="移動ボタン">
               <button id="dirUpButton" class="dir-button" type="button" aria-label="上へ">↑</button>
               <button id="dirLeftButton" class="dir-button" type="button" aria-label="左へ">←</button>
               <button id="dirDownButton" class="dir-button" type="button" aria-label="下へ">↓</button>
               <button id="dirRightButton" class="dir-button" type="button" aria-label="右へ">→</button>
             </div>
-            <p class="microcopy">移動モードなら1マス移動、ジャンプモードなら2マスジャンプします。</p>
+            <p class="microcopy">移動モードなら1マス移動、ジャンプモードなら2マス先へジャンプします。</p>
           </div>
         </div>
 
         <aside class="side-panel">
-          <div class="panel-block">
-            <p class="eyebrow">あなた</p>
-            <h3 id="youAre">-</h3>
-          </div>
-
-          <div class="panel-block">
-            <p class="eyebrow">ゲーム状況</p>
-            <p id="turnLabel" class="big-line">待機中...</p>
-            <p id="messageLabel" class="message-box">ルームに接続するとここに状況が表示されます。</p>
-            <p id="winnerLabel" class="winner-line"></p>
-          </div>
-
-          <div id="startPanel" class="panel-block hidden">
+          <div id="pitStartPanel" class="panel-block hidden">
             <p class="eyebrow">先手を決める</p>
             <div class="action-grid">
               <button id="startOButton" class="primary">O を先手</button>
               <button id="startXButton" class="primary">X を先手</button>
               <button id="startRandomButton">ランダム</button>
             </div>
-            <p id="startPanelNote" class="microcopy">部屋を作った人が選べます。</p>
+            <p id="pitStartPanelNote" class="microcopy">部屋を作った人が先手を決めてください。</p>
           </div>
 
           <div class="panel-block">
-            <p class="eyebrow">行動</p>
+            <p class="eyebrow">操作</p>
             <div class="action-grid">
               <button id="moveModeButton" class="primary">移動</button>
               <button id="jumpModeButton">ジャンプ</button>
-              <button id="pitModeButton">落とし穴</button>
+              <button id="pitModeButton">ピット</button>
               <button id="passButton" class="danger">行動終了</button>
             </div>
-            <p class="microcopy">PCは矢印キー、スマホやタブレットは画面内の方向ボタンで操作できます。</p>
+            <p class="microcopy">PCは矢印キーでも操作できます。ピットはセルを押して配置します。</p>
           </div>
 
-          <div id="rematchPanel" class="panel-block hidden">
+          <div id="pitRematchPanel" class="panel-block hidden">
             <p class="eyebrow">再戦</p>
             <button id="rematchButton" class="primary">もう一度遊ぶ</button>
-            <p class="microcopy">同じ部屋で盤面をリセットして再戦します。</p>
+            <p class="microcopy">同じ部屋のまま、もう一局はじめられます。</p>
           </div>
 
           <div class="panel-block">
             <p class="eyebrow">プレイヤー情報</p>
             <div id="playersPanel" class="players-panel"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="auctionGameView" class="auction-layout hidden">
+        <div class="board-wrap auction-board-wrap">
+          <div class="auction-meta">
+            <div class="stat-chip">
+              <span>ラウンド</span>
+              <strong id="auctionRoundLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>今回の出目</span>
+              <strong id="auctionRollLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>コース長</span>
+              <strong id="auctionTrackLabel">-</strong>
+            </div>
+          </div>
+
+          <div id="goalRewardBanner" class="goal-reward-banner"></div>
+          <div id="auctionTurnDetail" class="turn-detail-banner">ここにそのターンのセリ結果が表示されます。</div>
+
+          <div class="snake-board-shell">
+            <svg id="auctionBoardLines" class="snake-lines" aria-hidden="true"></svg>
+            <div id="auctionBoard" class="auction-board"></div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="auctionStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <div class="start-actions">
+              <button id="auctionStartButton" class="primary">この人数で開始する</button>
+              <button id="toggleSettingsButton">設定を開く</button>
+            </div>
+            <p id="auctionStartNote" class="microcopy">2人以上で開始できます。参加人数でコース長が決まります。</p>
+          </div>
+
+          <div id="auctionSettingsPanel" class="panel-block hidden">
+            <p class="eyebrow">開始前の設定</p>
+            <div class="settings-grid">
+              <label class="field">
+                <span>初期金額</span>
+                <input id="settingStartingBalance" type="number" min="1000" step="1000">
+              </label>
+              <label class="field">
+                <span>サイコロ上限</span>
+                <input id="settingDiceSides" type="number" min="2" step="1">
+              </label>
+              <label class="field">
+                <span>コース長</span>
+                <input id="settingTrackLength" type="number" min="6" step="1">
+              </label>
+              <label class="field">
+                <span>青マス数</span>
+                <input id="settingPlusCount" type="number" min="0" step="1">
+              </label>
+              <label class="field">
+                <span>赤マス数</span>
+                <input id="settingMinusCount" type="number" min="0" step="1">
+              </label>
+              <label class="field">
+                <span>進むマス数</span>
+                <input id="settingForwardCount" type="number" min="0" step="1">
+              </label>
+              <label class="field">
+                <span>戻るマス数</span>
+                <input id="settingBackwardCount" type="number" min="0" step="1">
+              </label>
+              <label class="field">
+                <span>進むマスの歩数</span>
+                <input id="settingForwardSteps" type="number" min="1" step="1">
+              </label>
+              <label class="field">
+                <span>戻るマスの歩数</span>
+                <input id="settingBackwardSteps" type="number" min="1" step="1">
+              </label>
+              <label class="field">
+                <span>青赤マスの合計値</span>
+                <input id="settingNetTileTotal" type="number" step="1000">
+              </label>
+              <label class="field">
+                <span>空きマス数</span>
+                <input id="settingBlankCount" type="number" disabled>
+              </label>
+              <label class="field">
+                <span>先着テープ位置</span>
+                <input id="settingTapePosition" type="number" min="1" step="1" placeholder="空欄で中央">
+              </label>
+              <label class="field">
+                <span>先着テープ報酬</span>
+                <input id="settingTapeBonus" type="number" min="0" step="1000">
+              </label>
+              <label class="field field-wide">
+                <span>ゴール報酬</span>
+                <input id="settingGoalRewards" type="text" placeholder="50000,20000,10000,5000">
+              </label>
+              <label class="field field-wide">
+                <span>マス配置</span>
+                <textarea id="settingTileLayout" rows="4" placeholder="例: 1000,-1000,0,3000,-2000,0"></textarea>
+              </label>
+            </div>
+            <div class="start-actions">
+              <button id="saveSettingsButton" class="primary">設定を保存</button>
+              <button id="closeSettingsButton">閉じる</button>
+            </div>
+            <p class="microcopy">マス配置はカンマ区切りです。正の数は青、負の数は赤、0 は空きマスになります。空欄ならランダム配置です。</p>
+          </div>
+
+          <div class="panel-block bank-panel">
+            <p class="eyebrow">銀行</p>
+            <div class="bank-balance">
+              <span>あなたの残高</span>
+              <strong id="bankBalanceLabel">-</strong>
+            </div>
+
+            <div class="field">
+              <label for="bidUnitsInput">入札額</label>
+              <div class="yen-input">
+                <span class="yen-prefix">¥</span>
+                <input id="bidUnitsInput" type="number" min="0" step="1" value="0">
+                <span class="yen-suffix">000</span>
+              </div>
+            </div>
+
+            <div id="quickBidButtons" class="chip-row"></div>
+
+            <div class="action-grid">
+              <button id="submitBidButton" class="primary">この金額でセリ</button>
+              <button id="judgeButton">ジャッジ</button>
+              <button id="resignButton" class="danger">降参する</button>
+            </div>
+
+            <p class="microcopy">最後の人が入札しても自動公開はされません。全員の入力後にジャッジボタンを押します。</p>
+          </div>
+
+          <div id="auctionRematchPanel" class="panel-block hidden">
+            <p class="eyebrow">再戦</p>
+            <button id="auctionRematchButton" class="primary">同じメンバーで再戦</button>
+            <p class="microcopy">再戦すると開始前の設定もそのまま引き継がれます。</p>
+          </div>
+
+          <div id="auctionResultsPanel" class="panel-block hidden">
+            <p class="eyebrow">結果発表</p>
+            <button id="showResultsButton" class="primary">結果を見る</button>
+            <p class="microcopy">結果発表後は感想戦モードに切り替わります。</p>
+          </div>
+
+          <div id="auctionReplayPanel" class="panel-block hidden">
+            <p class="eyebrow">感想戦</p>
+            <div class="replay-controls">
+              <button id="replayPrevButton">-1</button>
+              <div class="replay-turn">
+                <span>ターン</span>
+                <strong id="replayTurnLabel">0</strong>
+              </div>
+              <button id="replayNextButton">+1</button>
+            </div>
+            <p id="replaySummaryLabel" class="microcopy">ここで各ターンの動きとセリ結果を確認できます。</p>
+          </div>
+
+          <div id="auctionPlayersPanelBlock" class="panel-block hidden">
+            <p class="eyebrow">プレイヤー一覧</p>
+            <div id="auctionPlayersPanel" class="players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">試合ログ / 感想戦</p>
+            <div id="auctionLogPanel" class="log-panel"></div>
           </div>
         </aside>
       </div>

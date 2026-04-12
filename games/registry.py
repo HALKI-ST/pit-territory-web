@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from typing import Callable, Dict
 
+from games.auction_race import AuctionRaceGame
 from games.pit_territory import PitTerritoryGame
 
 
 GAME_REGISTRY: Dict[str, Callable[[], object]] = {
     PitTerritoryGame.game_type: PitTerritoryGame,
+    AuctionRaceGame.game_type: AuctionRaceGame,
 }
 
 GAME_CATALOG = [
     PitTerritoryGame.catalog_entry(),
+    AuctionRaceGame.catalog_entry(),
 ]
 
 

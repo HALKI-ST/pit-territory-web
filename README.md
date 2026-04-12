@@ -1,130 +1,128 @@
 # ST-SPACE Game Rooms
 
-Browser-based multiplayer game room app using FastAPI and WebSocket.
+FastAPI と WebSocket で動く、ブラウザ向けのオンライン対戦ゲーム集です。
 
-The app now supports a shared lobby where players choose a game first, then create or join a room. The first playable game is `落とし穴陣取りゲーム`.
+現在は次の2ゲームを選べます。
 
-## What You Need
+- `落とし穴陣取りゲーム`
+- `セリすごろく`
 
-For local play:
+## できること
 
-- Python 3.10 or newer
-- A terminal
-- Two browser tabs or two devices on the same server URL
+- 1つのロビーからゲームを選んで部屋を作成
+- ルームIDで友達を招待
+- WebSocket でリアルタイム同期
+- 同じ部屋のまま再戦
+- セリすごろくは 2〜8 人まで参加可能
 
-For the first version, you do not need:
+## 必要なもの
 
-- a paid service
-- player login
-- player account creation
-- a database
+ローカルで動かすだけなら、次だけあれば十分です。
 
-You only need a hosting account later if you want to deploy it on the internet so a friend outside your machine can open a URL.
+- Python 3.10 以上
+- ターミナル
+- ブラウザ
 
-## Cost, Setup, and Accounts
+このバージョンでは不要です。
 
-### Does WebSocket cost money?
+- 有料サーバー
+- ログイン
+- アカウント作成
+- データベース
 
-No by itself. WebSocket is only a communication method supported by browsers and servers.
+## 起動方法
 
-### Do FastAPI and WebSocket require a paid account?
+1. 依存関係を入れます。
 
-No. FastAPI is an open-source Python framework, and browsers support WebSocket without payment.
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### Do I need my own setup?
+2. サーバーを起動します。
 
-Yes, but only a light one for development:
+   ```bash
+   python -m uvicorn app:app --reload
+   ```
 
-- Python installed
-- dependencies from `requirements.txt`
-- a terminal to run the server
+3. ブラウザで開きます。
 
-If you later deploy online, you will need an account on a hosting service such as Render or Railway, but players still do not need accounts for this MVP.
+   [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-### Do players need login or account creation?
+## 遊び方
 
-No. This version uses room codes. One player creates a room and shares the code. The other player joins with the code.
+### 落とし穴陣取りゲーム
 
-## Project Structure
+- 2人対戦です
+- 部屋主が先手を決めます
+- 移動、ジャンプ、ピット、行動終了が使えます
+- 足跡の数が多い方の勝ちです
+
+### セリすごろく
+
+- 参加人数はルームに入った人数で決まります
+- 部屋主が「この人数で開始する」を押すと開始します
+- 毎ラウンド、出目が先に公開されます
+- 各プレイヤーは銀行で入札額を 1000 円単位で入力します
+- 全員が確定すると自動でジャッジされます
+- 最高額の人が出目を購入して進みます
+- 同額トップが複数人いたときは、出目を人数で割ったマス数だけ全員が進みます
+- 残高はゲーム終了まで自分にだけ見えます
+- 残高がマイナスになると脱落です
+- 降参ボタンも使えます
+- 最後に残高が最も高い人の勝ちです
+
+## セリすごろくの初期設定
+
+`games/auction_race.py` で、次の値を手動調整できます。
+
+- 初期所持金
+- サイコロ上限
+- コース長の計算式
+- 先着テープのボーナス
+- クイック入札ボタン
+- 金額マスの候補
+
+主にこのあたりです。
+
+- `DEFAULT_STARTING_BALANCE`
+- `DEFAULT_DICE_SIDES`
+- `DEFAULT_TRACK_EXTRA`
+- `DEFAULT_TRACK_PER_PLAYER`
+- `DEFAULT_TAPE_BONUS`
+- `DEFAULT_QUICK_BIDS`
+- `BOARD_MONEY_VALUES`
+
+## ファイル構成
 
 ```text
 pit_territory_web/
   app.py
   requirements.txt
-  DESIGN.md
+  render.yaml
   games/
-    __init__.py
-    registry.py
     pit_territory.py
+    auction_race.py
+    registry.py
   static/
     index.html
     styles.css
     app.js
 ```
 
-## Features
+## Render へ公開するとき
 
-- Shared lobby with game selection
-- 2-player room creation and join
-- Authoritative server-side rule validation
-- WebSocket live updates
-- Selectable game metadata from the backend
-- 5x5 board rendering in the browser for the pit territory game
-- Move, jump, pit, and pass actions for the pit territory game
-- Room-code-based access
-- No login required
+この構成は FastAPI が API と WebSocket と静的ファイルをまとめて配信するので、Render では `Web Service` ひとつで動かせます。
 
-## Run Locally
+無料プランでも試せますが、次の点は知っておくと安心です。
 
-1. Install dependencies:
+- 一定時間アクセスがないとスリープする
+- 最初のアクセスで起動待ちが発生する
+- 状態はメモリ保存なので、再起動するとルームは消える
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 今後の拡張向けメモ
 
-   If you installed dependencies before this update, run it again so WebSocket support is added.
+- 新しいゲームは `games/` に追加
+- `games/registry.py` に登録
+- 画面が専用UIを必要とするなら `static/app.js` と `static/index.html` を拡張
 
-2. Start the server:
-
-   ```bash
-   python -m uvicorn app:app --reload
-   ```
-
-3. Open the game:
-
-   [http://127.0.0.1:8000](http://127.0.0.1:8000)
-
-4. Test with two players:
-
-- Open the site in two browser tabs or two browsers.
-- Choose `落とし穴陣取りゲーム` and create a room in one tab.
-- Join the room from the other tab using the room code.
-
-## Adding Another Game
-
-To add the next game idea, the intended path is:
-
-1. Create a new file under `games/`
-2. Give it the same surface API as `PitTerritoryGame`
-3. Register it in `games/registry.py`
-4. Add any frontend rendering differences if the new game needs a different board or action UI
-
-The backend room system is now prepared for `game_type` selection per room.
-
-## Deployment Later
-
-To play with friends over the internet, deploy this folder as a Python web service.
-
-For the MVP you can use one service only:
-
-- FastAPI serves the API, WebSocket endpoint, and static frontend together.
-
-That keeps deployment simpler and avoids a separate frontend build system.
-
-## Limitations Of This MVP
-
-- Room state is stored only in memory
-- Server restart deletes all rooms
-- No spectating
-- No rematch button yet
-- No long-term persistence
+今の土台は、複数ゲームを1つのURLで切り替えて遊ぶ前提で作っています。

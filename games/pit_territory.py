@@ -55,6 +55,10 @@ class PitTerritoryGame:
     game_type = "pit_territory"
     title = "落とし穴陣取りゲーム"
     subtitle = "足跡を増やし、落とし穴と一度きりのジャンプで勝負する5x5対戦。"
+    min_players = 2
+    max_players = 2
+    seat_order = ["O", "X"]
+    host_control_actions = {"set_start_player"}
 
     def __init__(self) -> None:
         self.players: Dict[str, PlayerState] = {
@@ -114,6 +118,25 @@ class PitTerritoryGame:
             self.players[symbol].name = saved_names[symbol]
             self.players[symbol].connected = saved_connections[symbol]
         self.message = "再戦の準備ができました。部屋を作った人が先手を決めてください。"
+
+    def update_connection(self, symbol: str, connected: bool) -> None:
+        if symbol in self.players:
+            self.players[symbol].connected = connected
+
+    def apply_player_action(
+        self,
+        symbol: str,
+        action: str,
+        direction: Optional[str] = None,
+        cell: Optional[List[int]] = None,
+        **_: object,
+    ) -> None:
+        self.apply_action(symbol=symbol, action=action, direction=direction, cell=cell)
+
+    def apply_host_action(self, action: str, start_choice: Optional[str] = None, **_: object) -> None:
+        if action != "set_start_player":
+            raise GameError("不明な管理操作です。")
+        self.set_start_player(start_choice or "")
 
     def in_bounds(self, cell: Cell) -> bool:
         x, y = cell
@@ -279,7 +302,7 @@ class PitTerritoryGame:
             "max_players": 2,
         }
 
-    def to_public_dict(self) -> dict:
+    def to_public_dict(self, viewer_symbol: Optional[str] = None) -> dict:
         return {
             "game_type": self.game_type,
             "title": self.title,

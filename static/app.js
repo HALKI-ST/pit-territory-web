@@ -3,6 +3,7 @@ const state = {
   playerToken: "",
   playerSymbol: "",
   selectedGameType: "",
+  gameCategoryTab: "original",
   socket: null,
   gameState: null,
   games: [],
@@ -15,10 +16,12 @@ const boardEl = document.getElementById("board");
 const auctionBoardEl = document.getElementById("auctionBoard");
 const auctionBoardLinesEl = document.getElementById("auctionBoardLines");
 const mouseBoardEl = document.getElementById("mouseBoard");
+const wordSpyBoardEl = document.getElementById("wordSpyBoard");
 const gameSectionEl = document.getElementById("gameSection");
 const pitGameViewEl = document.getElementById("pitGameView");
 const auctionGameViewEl = document.getElementById("auctionGameView");
 const mouseTrapViewEl = document.getElementById("mouseTrapView");
+const wordSpyViewEl = document.getElementById("wordSpyView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -58,6 +61,22 @@ const mouseGuideLabelEl = document.getElementById("mouseGuideLabel");
 const mouseBuildLogEl = document.getElementById("mouseBuildLog");
 const mouseChaseLogEl = document.getElementById("mouseChaseLog");
 const mouseRematchPanelEl = document.getElementById("mouseRematchPanel");
+const wordSpyPhaseLabelEl = document.getElementById("wordSpyPhaseLabel");
+const wordSpyTeamLabelEl = document.getElementById("wordSpyTeamLabel");
+const wordSpyHintLabelEl = document.getElementById("wordSpyHintLabel");
+const wordSpyCountLabelEl = document.getElementById("wordSpyCountLabel");
+const wordSpyRemainingLabelEl = document.getElementById("wordSpyRemainingLabel");
+const wordSpyGuideLabelEl = document.getElementById("wordSpyGuideLabel");
+const wordSpyTeamsPanelEl = document.getElementById("wordSpyTeamsPanel");
+const wordSpyLogPanelEl = document.getElementById("wordSpyLogPanel");
+const wordSpyStartPanelEl = document.getElementById("wordSpyStartPanel");
+const wordSpyRematchPanelEl = document.getElementById("wordSpyRematchPanel");
+const wordSpyStartNoteEl = document.getElementById("wordSpyStartNote");
+const wordSpySetupPanelEl = document.getElementById("wordSpySetupPanel");
+const wordSpyRoleBadgeEl = document.getElementById("wordSpyRoleBadge");
+const wordSpyAssignmentsPanelEl = document.getElementById("wordSpyAssignmentsPanel");
+const wordSpyClueFieldEl = document.getElementById("wordSpyClueField");
+const wordSpyCountFieldEl = document.getElementById("wordSpyCountField");
 
 const settingEls = {
   startingBalance: document.getElementById("settingStartingBalance"),
@@ -165,7 +184,8 @@ async function loadGames() {
     const payload = await fetchJson("/api/games");
     state.games = payload.games || [];
     if (!state.selectedGameType && state.games.length > 0) {
-      state.selectedGameType = state.games[0].game_type;
+      const defaultGame = state.games.find((game) => (game.category || "classic") === "original") || state.games[0];
+      state.selectedGameType = defaultGame.game_type;
     }
     renderGameCards();
   } catch (error) {
@@ -175,21 +195,133 @@ async function loadGames() {
 
 function renderGameCards() {
   gameSelectEl.innerHTML = "";
+  const categoryOrder = ["original", "classic"];
+  const categoryLabels = {
+    original: "自作ゲーム",
+    classic: "既存ゲーム",
+  };
+  const grouped = new Map();
+
   for (const game of state.games) {
+    const category = game.category || "classic";
+    if (!grouped.has(category)) {
+      grouped.set(category, []);
+    }
+    grouped.get(category).push(game);
+  }
+
+  for (const category of categoryOrder) {
+    const games = grouped.get(category);
+    if (!games || games.length === 0) {
+      continue;
+    }
+
+    const section = document.createElement("section");
+    section.className = "game-category";
+
+    const heading = document.createElement("div");
+    heading.className = "game-category-heading";
+    heading.innerHTML = `
+      <strong>${categoryLabels[category] || category}</strong>
+      <span>${category === "original" ? "あなたの自作ゲーム" : "既存ルールをもとにしたゲーム"}</span>
+    `;
+    section.appendChild(heading);
+
+    const list = document.createElement("div");
+    list.className = "game-category-list";
+
+    for (const game of games) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `game-card ${state.selectedGameType === game.game_type ? "selected" : ""}`;
+      button.innerHTML = `
+        <strong>${game.title}</strong>
+        <span>${game.subtitle}</span>
+        <span>${game.min_players === game.max_players ? `${game.min_players}人用` : `${game.min_players}-${game.max_players}人用`}</span>
+      `;
+      button.addEventListener("click", () => {
+        state.selectedGameType = game.game_type;
+        renderGameCards();
+      });
+      list.appendChild(button);
+    }
+
+    section.appendChild(list);
+    gameSelectEl.appendChild(section);
+  }
+}
+
+function renderGameCards() {
+  gameSelectEl.innerHTML = "";
+  const categoryLabels = {
+    original: "自作ゲーム",
+    classic: "既存ゲーム",
+  };
+  const categoryDescriptions = {
+    original: "あなたのオリジナル作品をここで遊べます。",
+    classic: "既存ルールを参考にしたゲームをここで遊べます。",
+  };
+  const tabs = ["original", "classic"].filter((category) =>
+    state.games.some((game) => (game.category || "classic") === category),
+  );
+
+  if (!tabs.includes(state.gameCategoryTab)) {
+    state.gameCategoryTab = tabs[0] || "original";
+  }
+
+  const tabRow = document.createElement("div");
+  tabRow.className = "game-category-tabs";
+  for (const category of tabs) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `game-category-tab ${state.gameCategoryTab === category ? "active" : ""}`;
+    button.textContent = categoryLabels[category] || category;
+    button.addEventListener("click", () => {
+      state.gameCategoryTab = category;
+      const visibleGames = state.games.filter((game) => (game.category || "classic") === category);
+      if (!visibleGames.some((game) => game.game_type === state.selectedGameType) && visibleGames.length > 0) {
+        state.selectedGameType = visibleGames[0].game_type;
+      }
+      renderGameCards();
+    });
+    tabRow.appendChild(button);
+  }
+  gameSelectEl.appendChild(tabRow);
+
+  const heading = document.createElement("div");
+  heading.className = "game-category-heading";
+  heading.innerHTML = `
+    <strong>${categoryLabels[state.gameCategoryTab] || state.gameCategoryTab}</strong>
+    <span>${categoryDescriptions[state.gameCategoryTab] || ""}</span>
+  `;
+  gameSelectEl.appendChild(heading);
+
+  const list = document.createElement("div");
+  list.className = "game-category-list";
+  const visibleGames = state.games.filter((game) => (game.category || "classic") === state.gameCategoryTab);
+  if (!visibleGames.some((game) => game.game_type === state.selectedGameType) && visibleGames.length > 0) {
+    state.selectedGameType = visibleGames[0].game_type;
+  }
+
+  for (const game of visibleGames) {
+    const playerLabel = game.player_label
+      || (game.min_players === game.max_players ? `${game.min_players}人用` : `${game.min_players}-${game.max_players}人用`);
     const button = document.createElement("button");
     button.type = "button";
     button.className = `game-card ${state.selectedGameType === game.game_type ? "selected" : ""}`;
     button.innerHTML = `
       <strong>${game.title}</strong>
       <span>${game.subtitle}</span>
-      <span>${game.min_players === game.max_players ? `${game.min_players}人用` : `${game.min_players}-${game.max_players}人用`}</span>
+      <span>${playerLabel}</span>
     `;
     button.addEventListener("click", () => {
       state.selectedGameType = game.game_type;
       renderGameCards();
     });
-    gameSelectEl.appendChild(button);
+    list.appendChild(button);
   }
+
+  gameSelectEl.appendChild(list);
 }
 
 async function createRoom() {
@@ -328,6 +460,7 @@ function render() {
   pitGameViewEl.classList.toggle("hidden", game.game_type !== "pit_territory");
   auctionGameViewEl.classList.toggle("hidden", game.game_type !== "auction_race");
   mouseTrapViewEl.classList.toggle("hidden", game.game_type !== "mouse_trap");
+  wordSpyViewEl.classList.toggle("hidden", game.game_type !== "word_spy");
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -335,6 +468,8 @@ function render() {
     renderAuctionRace(game, myPlayer);
   } else if (game.game_type === "mouse_trap") {
     renderMouseTrap(game);
+  } else if (game.game_type === "word_spy") {
+    renderWordSpy(game);
   }
 }
 
@@ -1244,6 +1379,302 @@ function handleMouseCellClick(game, cell) {
   sendAction({ action: "move_mouse", cell });
 }
 
+function wordSpyTeamLabel(team) {
+  return team === "red" ? "赤" : "青";
+}
+
+function wordSpyRoleLabel(teamInfo) {
+  if (teamInfo.viewer_can_give_hint) return "あなたは伝達側です";
+  if (teamInfo.viewer_can_guess) return "あなたは操作側です";
+  if (teamInfo.viewer_is_team_member) return "あなたはこのチームの待機メンバーです";
+  return "相手チームです";
+}
+
+function wordSpyGuideText(game) {
+  if (game.game_over) {
+    return "ゲーム終了です。結果を確認して、必要なら同じ部屋で再戦できます。";
+  }
+  const teamInfo = game.teams[state.playerSymbol?.startsWith("R") ? "red" : "blue"];
+  if (!game.started) {
+    return "赤チームと青チームに最低1人ずつそろったら開始できます。";
+  }
+  if (game.phase === "hint") {
+    if (teamInfo?.viewer_can_give_hint) {
+      return "あなたの番です。1語と数字でヒントを出してください。";
+    }
+    return `${wordSpyTeamLabel(game.current_team)}チームの伝達側がヒントを出しています。`;
+  }
+  if (teamInfo?.viewer_can_guess) {
+    return "あなたの番です。カードをクリックして公開するか、推理を終了してください。";
+  }
+  return `${wordSpyTeamLabel(game.current_team)}チームの操作側が推理中です。`;
+}
+
+function renderWordSpy(game) {
+  const host = isHost(game);
+  const myTeam = state.playerSymbol?.startsWith("R") ? "red" : "blue";
+  const myTeamInfo = game.teams?.[myTeam];
+
+  wordSpyStartPanelEl.classList.toggle("hidden", game.started || game.game_over || !host);
+  wordSpyRematchPanelEl.classList.toggle("hidden", !game.game_over);
+
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : !game.started
+      ? `開始待ち (${game.players_joined}/${game.max_players} 人参加中)`
+      : `${wordSpyTeamLabel(game.current_team)}チーム / ${game.phase === "hint" ? "ヒント" : "推理"}フェーズ`;
+
+  wordSpyPhaseLabelEl.textContent = !game.started ? "待機" : game.phase === "hint" ? "ヒント" : game.phase === "guess" ? "推理" : "終了";
+  wordSpyTeamLabelEl.textContent = game.started ? `${wordSpyTeamLabel(game.current_team)}チーム` : "-";
+  wordSpyHintLabelEl.textContent = game.current_hint_word ? `${game.current_hint_word} ${game.current_hint_count}` : "-";
+  wordSpyGuideLabelEl.textContent = wordSpyGuideText(game);
+
+  document.getElementById("wordSpyClueInput").disabled = !myTeamInfo?.viewer_can_give_hint;
+  document.getElementById("wordSpyCountInput").disabled = !myTeamInfo?.viewer_can_give_hint;
+  document.getElementById("wordSpyClueButton").disabled = !myTeamInfo?.viewer_can_give_hint;
+  document.getElementById("wordSpyEndTurnButton").disabled = !myTeamInfo?.viewer_can_guess;
+  document.getElementById("wordSpyResignButton").disabled = !game.started || game.game_over;
+
+  renderWordSpyBoard(game, myTeamInfo);
+  renderWordSpyTeams(game);
+  renderSimpleLog(wordSpyLogPanelEl, game.history || []);
+}
+
+function renderWordSpyBoard(game, myTeamInfo) {
+  wordSpyBoardEl.innerHTML = "";
+  for (const card of game.cards || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `wordspy-card ${card.revealed ? `revealed role-${card.role}` : ""}`;
+    if (!card.revealed && card.role) {
+      button.classList.add(`peek-${card.role}`);
+    }
+
+    const word = document.createElement("strong");
+    word.textContent = card.word;
+    button.appendChild(word);
+
+    const meta = document.createElement("span");
+    meta.className = "wordspy-card-meta";
+    meta.textContent = card.revealed
+      ? (card.role === "red" ? "赤" : card.role === "blue" ? "青" : card.role === "neutral" ? "一般人" : "即死")
+      : card.role
+        ? (card.role === "red" ? "赤位置" : card.role === "blue" ? "青位置" : card.role === "neutral" ? "一般人" : "危険")
+        : "";
+    button.appendChild(meta);
+
+    const canGuess = myTeamInfo?.viewer_can_guess && !card.revealed && !game.game_over;
+    button.disabled = !canGuess;
+    if (canGuess) {
+      button.classList.add("clickable");
+      button.addEventListener("click", () => sendAction({ action: "reveal_card", card_index: card.index }));
+    }
+    wordSpyBoardEl.appendChild(button);
+  }
+}
+
+function renderWordSpyTeams(game) {
+  wordSpyTeamsPanelEl.innerHTML = "";
+  for (const team of ["red", "blue"]) {
+    const info = game.teams[team];
+    const card = document.createElement("div");
+    card.className = `player-card ${team === "red" ? "x" : "o"} wordspy-team-card`;
+    card.innerHTML = `
+      <strong>${info.label}チーム</strong>
+      <div>残りカード: ${info.remaining}</div>
+      <div>伝達側: ${info.spymaster ? info.spymaster.name : "未参加"}</div>
+      <div>操作側: ${info.operative ? info.operative.name : "未参加"}</div>
+      <div>${wordSpyRoleLabel(info)}</div>
+    `;
+    wordSpyTeamsPanelEl.appendChild(card);
+  }
+}
+
+function wordSpyTeamLabel(team) {
+  return team === "red" ? "赤チーム" : team === "blue" ? "青チーム" : "未設定";
+}
+
+function wordSpyRoleBadgeClass(team, role) {
+  if (team === "red" && role === "master") return "red master";
+  if (team === "red" && role === "spy") return "red spy";
+  if (team === "blue" && role === "master") return "blue master";
+  if (team === "blue" && role === "spy") return "blue spy";
+  return "";
+}
+
+function wordSpyGuideText(game, myAssignment) {
+  if (game.game_over) {
+    return "ゲームは終了しました。結果を確認して、必要なら同じ部屋で再戦してください。";
+  }
+  if (!game.started) {
+    return game.start_requirements || "4人以上集まり、4つの役職が埋まると開始できます。";
+  }
+  if (game.phase === "hint") {
+    return myAssignment?.viewer_can_give_hint
+      ? "あなたはマスターです。単語1つと数字1つでヒントを出してください。"
+      : `${wordSpyTeamLabel(game.current_team)}のマスターがヒントを出しています。`;
+  }
+  return myAssignment?.viewer_can_guess
+    ? "あなたはスパイです。カードを開くか、推理終了ボタンで手番を終えてください。"
+    : `${wordSpyTeamLabel(game.current_team)}のスパイが推理中です。`;
+}
+
+function renderWordSpy(game) {
+  const host = isHost(game);
+  const myAssignment = game.viewer_assignment || {};
+  const roleText = myAssignment.team
+    ? `あなたの役職: ${myAssignment.team_label}の${myAssignment.role_label}`
+    : "あなたの役職: 未設定";
+
+  wordSpyStartPanelEl.classList.toggle("hidden", game.started || game.game_over || !host);
+  wordSpyRematchPanelEl.classList.toggle("hidden", !game.game_over);
+  wordSpySetupPanelEl.classList.toggle("hidden", false);
+
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : !game.started
+      ? `開始待ち / 現在 ${game.players_joined} 人`
+      : `${wordSpyTeamLabel(game.current_team)} / ${game.phase === "hint" ? "ヒント（マスター）フェイズ" : "推理（スパイ）フェイズ"}`;
+
+  wordSpyPhaseLabelEl.textContent = !game.started
+    ? "開始前"
+    : game.phase === "hint"
+      ? "ヒント（マスター）"
+      : game.phase === "guess"
+        ? "推理（スパイ）"
+        : "終了";
+  wordSpyTeamLabelEl.textContent = game.started ? wordSpyTeamLabel(game.current_team) : "-";
+  wordSpyHintLabelEl.textContent = game.current_hint_word || "-";
+  wordSpyCountLabelEl.textContent = game.current_hint_count ? String(game.current_hint_count) : "-";
+  wordSpyRemainingLabelEl.textContent = game.phase === "guess" ? String(game.guesses_remaining ?? 0) : "-";
+  wordSpyGuideLabelEl.textContent = wordSpyGuideText(game, myAssignment);
+  wordSpyStartNoteEl.textContent = game.start_requirements || "4人以上で役職を決めると開始できます。";
+  wordSpyRoleBadgeEl.className = `wordspy-role-badge ${wordSpyRoleBadgeClass(myAssignment.team, myAssignment.role)}`;
+  wordSpyRoleBadgeEl.textContent = roleText;
+
+  const canGiveHint = Boolean(myAssignment.viewer_can_give_hint);
+  const canGuess = Boolean(myAssignment.viewer_can_guess);
+  wordSpyClueFieldEl.classList.toggle("hidden", !canGiveHint);
+  wordSpyCountFieldEl.classList.toggle("hidden", !canGiveHint);
+  document.getElementById("wordSpyClueInput").disabled = !canGiveHint;
+  document.getElementById("wordSpyCountInput").disabled = !canGiveHint;
+  document.getElementById("wordSpyClueButton").classList.toggle("hidden", !canGiveHint);
+  document.getElementById("wordSpyClueButton").disabled = !canGiveHint;
+  document.getElementById("wordSpyEndTurnButton").classList.toggle("hidden", !canGuess);
+  document.getElementById("wordSpyEndTurnButton").disabled = !canGuess;
+  document.getElementById("wordSpyResignButton").disabled = !game.started || game.game_over;
+
+  renderWordSpyBoard(game, myAssignment);
+  renderWordSpyAssignments(game, host);
+  renderWordSpyTeams(game);
+  renderSimpleLog(wordSpyLogPanelEl, game.history || []);
+}
+
+function renderWordSpyBoard(game, myAssignment) {
+  wordSpyBoardEl.innerHTML = "";
+  for (const card of game.cards || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `wordspy-card ${card.revealed ? `revealed role-${card.role}` : ""}`;
+    if (!card.revealed && card.role) {
+      button.classList.add(`peek-${card.role}`);
+    }
+
+    const word = document.createElement("strong");
+    word.textContent = card.word;
+    button.appendChild(word);
+
+    const meta = document.createElement("span");
+    meta.className = "wordspy-card-meta";
+    meta.textContent = card.revealed
+      ? (card.role === "red" ? "赤チーム" : card.role === "blue" ? "青チーム" : card.role === "neutral" ? "一般カード" : "暗殺カード")
+      : card.role
+        ? (card.role === "red" ? "赤配置" : card.role === "blue" ? "青配置" : card.role === "neutral" ? "一般配置" : "暗殺配置")
+        : "";
+    button.appendChild(meta);
+
+    const canGuess = myAssignment?.viewer_can_guess && !card.revealed && !game.game_over;
+    button.disabled = !canGuess;
+    if (canGuess) {
+      button.classList.add("clickable");
+      button.addEventListener("click", () => sendAction({ action: "reveal_card", card_index: card.index }));
+    }
+    wordSpyBoardEl.appendChild(button);
+  }
+}
+
+function renderWordSpyAssignments(game, host) {
+  wordSpyAssignmentsPanelEl.innerHTML = "";
+  const order = game.player_order || [];
+  for (const symbol of order) {
+    const player = game.players?.[symbol];
+    const assignment = game.assignments?.[symbol];
+    if (!player || !assignment) continue;
+
+    const row = document.createElement("div");
+    row.className = "wordspy-assignment-row";
+
+    const name = document.createElement("div");
+    name.className = "wordspy-assignment-name";
+    name.innerHTML = `<strong>${player.name}</strong><span>${symbol}</span>`;
+    row.appendChild(name);
+
+    if (!game.started && host) {
+      const select = document.createElement("select");
+      select.className = "wordspy-assignment-select";
+      const options = [
+        ["red:master", "赤マスター"],
+        ["red:spy", "赤スパイ"],
+        ["blue:master", "青マスター"],
+        ["blue:spy", "青スパイ"],
+      ];
+      for (const [value, label] of options) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        if (value === `${assignment.team}:${assignment.role}`) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => {
+        const [assignedTeam, assignedRole] = select.value.split(":");
+        sendAction({
+          action: "assign_role",
+          target_symbol: symbol,
+          assigned_team: assignedTeam,
+          assigned_role: assignedRole,
+        });
+      });
+      row.appendChild(select);
+    } else {
+      const badge = document.createElement("div");
+      badge.className = `wordspy-role-pill ${wordSpyRoleBadgeClass(assignment.team, assignment.role)}`;
+      badge.textContent = `${assignment.team_label} / ${assignment.role_label}`;
+      row.appendChild(badge);
+    }
+
+    wordSpyAssignmentsPanelEl.appendChild(row);
+  }
+}
+
+function renderWordSpyTeams(game) {
+  wordSpyTeamsPanelEl.innerHTML = "";
+  for (const team of ["red", "blue"]) {
+    const info = game.teams[team];
+    const card = document.createElement("div");
+    card.className = `player-card ${team === "red" ? "x" : "o"} wordspy-team-card`;
+    const spies = (info.spies || []).map((player) => player.name).join(" / ") || "未設定";
+    card.innerHTML = `
+      <strong>${info.label}</strong>
+      <div>残りカード: ${info.remaining}</div>
+      <div>マスター: ${info.master ? info.master.name : "未設定"}</div>
+      <div>スパイ: ${spies}</div>
+    `;
+    wordSpyTeamsPanelEl.appendChild(card);
+  }
+}
+
 function bindDirectionButton(buttonId, direction) {
   document.getElementById(buttonId).addEventListener("click", () => sendDirectionalAction(direction));
 }
@@ -1301,6 +1732,17 @@ document.getElementById("mouseResetSelectionButton").addEventListener("click", (
 document.getElementById("mouseRematchButton").addEventListener("click", () => {
   sendAction({ action: "rematch" });
 });
+document.getElementById("wordSpyStartButton").addEventListener("click", () => sendAction({ action: "start_match" }));
+document.getElementById("wordSpyRematchButton").addEventListener("click", () => sendAction({ action: "rematch" }));
+document.getElementById("wordSpyClueButton").addEventListener("click", () => {
+  sendAction({
+    action: "give_hint",
+    clue_text: document.getElementById("wordSpyClueInput").value.trim(),
+    clue_count: Number(document.getElementById("wordSpyCountInput").value || 1),
+  });
+});
+document.getElementById("wordSpyEndTurnButton").addEventListener("click", () => sendAction({ action: "end_turn" }));
+document.getElementById("wordSpyResignButton").addEventListener("click", () => sendAction({ action: "resign" }));
 document.getElementById("replayPrevButton").addEventListener("click", () => {
   state.replayTurn = Math.max(0, state.replayTurn - 1);
   render();

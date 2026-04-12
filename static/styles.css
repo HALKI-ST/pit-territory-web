@@ -110,6 +110,46 @@ body {
 
 .game-select {
   display: grid;
+  gap: 14px;
+}
+
+.game-category-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-category-tab {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(118, 109, 96, 0.2);
+}
+
+.game-category-tab.active {
+  background: linear-gradient(135deg, #0d628f, #2f87af);
+  color: white;
+}
+
+.game-category {
+  display: grid;
+  gap: 10px;
+}
+
+.game-category-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.game-category-heading strong {
+  font-size: 0.98rem;
+}
+
+.game-category-heading span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.game-category-list {
+  display: grid;
   gap: 10px;
 }
 
@@ -1006,6 +1046,166 @@ button.danger {
   display: block;
   margin-top: 2px;
   font-size: 1.2rem;
+}
+
+.wordspy-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.wordspy-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(104px, 1fr));
+  gap: 12px;
+}
+
+.wordspy-card {
+  min-height: 92px;
+  padding: 14px 12px;
+  border-radius: 18px;
+  border: 2px solid rgba(118, 109, 96, 0.2);
+  background: linear-gradient(145deg, rgba(255, 252, 245, 0.96), rgba(246, 236, 220, 0.9));
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+  text-align: left;
+  box-shadow: 0 10px 18px rgba(77, 63, 50, 0.08);
+}
+
+.wordspy-card strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.wordspy-card-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.wordspy-card.clickable {
+  cursor: pointer;
+  border-color: rgba(12, 92, 134, 0.4);
+}
+
+.wordspy-card.peek-red {
+  background: linear-gradient(145deg, rgba(255, 232, 232, 0.95), rgba(255, 250, 250, 0.92));
+  border-color: rgba(178, 65, 65, 0.28);
+}
+
+.wordspy-card.peek-blue {
+  background: linear-gradient(145deg, rgba(228, 240, 255, 0.95), rgba(251, 253, 255, 0.92));
+  border-color: rgba(59, 102, 178, 0.28);
+}
+
+.wordspy-card.peek-neutral {
+  background: linear-gradient(145deg, rgba(245, 239, 229, 0.94), rgba(255, 255, 255, 0.92));
+}
+
+.wordspy-card.peek-assassin {
+  background: linear-gradient(145deg, rgba(48, 48, 54, 0.96), rgba(88, 88, 96, 0.92));
+  color: white;
+  border-color: rgba(19, 19, 22, 0.6);
+}
+
+.wordspy-card.peek-assassin .wordspy-card-meta {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.wordspy-card.revealed.role-red {
+  background: linear-gradient(145deg, rgba(213, 84, 84, 0.96), rgba(245, 185, 185, 0.92));
+  color: white;
+}
+
+.wordspy-card.revealed.role-blue {
+  background: linear-gradient(145deg, rgba(67, 117, 208, 0.96), rgba(185, 214, 255, 0.92));
+  color: white;
+}
+
+.wordspy-card.revealed.role-neutral {
+  background: linear-gradient(145deg, rgba(221, 205, 177, 0.96), rgba(245, 235, 218, 0.92));
+}
+
+.wordspy-card.revealed.role-assassin {
+  background: linear-gradient(145deg, rgba(18, 18, 22, 0.98), rgba(80, 80, 88, 0.92));
+  color: white;
+}
+
+.wordspy-card.revealed .wordspy-card-meta {
+  color: inherit;
+}
+
+.wordspy-team-card strong {
+  margin-bottom: 6px;
+}
+
+.wordspy-role-badge,
+.wordspy-role-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 700;
+  border: 1px solid rgba(118, 109, 96, 0.2);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.wordspy-role-badge.red,
+.wordspy-role-pill.red {
+  color: #8b2f2f;
+  background: rgba(255, 232, 232, 0.92);
+}
+
+.wordspy-role-badge.blue,
+.wordspy-role-pill.blue {
+  color: #1f5895;
+  background: rgba(230, 240, 255, 0.92);
+}
+
+.wordspy-role-badge.master,
+.wordspy-role-pill.master {
+  box-shadow: inset 0 0 0 2px rgba(255, 196, 87, 0.45);
+}
+
+.wordspy-role-badge.spy,
+.wordspy-role-pill.spy {
+  box-shadow: inset 0 0 0 2px rgba(118, 109, 96, 0.16);
+}
+
+.wordspy-assignments {
+  display: grid;
+  gap: 10px;
+}
+
+.wordspy-assignment-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(118, 109, 96, 0.16);
+}
+
+.wordspy-assignment-name {
+  display: grid;
+  gap: 2px;
+}
+
+.wordspy-assignment-name span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.wordspy-assignment-select {
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 109, 96, 0.28);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 @media (max-width: 1080px) {

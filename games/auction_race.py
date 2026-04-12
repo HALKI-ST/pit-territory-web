@@ -9,7 +9,7 @@ class GameError(ValueError):
     pass
 
 
-MAX_PLAYERS = 8
+MAX_PLAYERS = 12
 DEFAULT_STARTING_BALANCE = 50_000
 DEFAULT_DICE_SIDES = 6
 DEFAULT_TRACK_LENGTH = 30
@@ -70,9 +70,11 @@ class AuctionRaceGame:
     game_type = "auction_race"
     title = "セリすごろく"
     subtitle = "サイコロの出目をセリで買って進む、銀行つきの多人数すごろく。"
+    category = "original"
     min_players = 2
     max_players = MAX_PLAYERS
-    seat_order = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    player_label = "2人～"
+    seat_order = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
     host_control_actions = {"start_match", "update_settings"}
 
     def __init__(self) -> None:
@@ -115,9 +117,11 @@ class AuctionRaceGame:
             "game_type": cls.game_type,
             "title": cls.title,
             "subtitle": cls.subtitle,
+            "category": cls.category,
             "status": "playable",
             "min_players": cls.min_players,
             "max_players": cls.max_players,
+            "player_label": cls.player_label,
         }
 
     def set_player_name(self, symbol: str, name: str) -> None:

@@ -246,6 +246,9 @@ def apply_player_action(room: Room, symbol: str, payload: dict) -> None:
             cell=payload.get("cell"),
             edge_id=payload.get("edge_id"),
             piece=payload.get("piece"),
+            clue_text=payload.get("clue_text"),
+            clue_count=payload.get("clue_count"),
+            card_index=payload.get("card_index"),
         )
         return
 
@@ -264,6 +267,9 @@ def apply_host_action(room: Room, payload: dict) -> None:
             action=action,
             start_choice=payload.get("start_choice"),
             settings=payload.get("settings"),
+            target_symbol=payload.get("target_symbol"),
+            assigned_team=payload.get("assigned_team"),
+            assigned_role=payload.get("assigned_role"),
         )
         return
 

@@ -55,8 +55,10 @@ class PitTerritoryGame:
     game_type = "pit_territory"
     title = "落とし穴陣取りゲーム"
     subtitle = "足跡を増やし、落とし穴と一度きりのジャンプで勝負する5x5対戦。"
+    category = "original"
     min_players = 2
     max_players = 2
+    player_label = "2人用"
     seat_order = ["O", "X"]
     host_control_actions = {"set_start_player"}
 
@@ -297,9 +299,11 @@ class PitTerritoryGame:
             "game_type": cls.game_type,
             "title": cls.title,
             "subtitle": cls.subtitle,
+            "category": cls.category,
             "status": "playable",
             "min_players": 2,
             "max_players": 2,
+            "player_label": cls.player_label,
         }
 
     def to_public_dict(self, viewer_symbol: Optional[str] = None) -> dict:

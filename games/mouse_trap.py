@@ -66,8 +66,10 @@ class MouseTrapGame:
     game_type = "mouse_trap"
     title = "ネズミとり"
     subtitle = "迷宮を作ってから、人間がネズミを追い詰める非対称2人対戦。"
+    category = "original"
     min_players = 2
     max_players = 2
+    player_label = "2人用"
     seat_order = ["H", "M"]
     host_control_actions: set[str] = set()
 
@@ -84,9 +86,11 @@ class MouseTrapGame:
             "game_type": cls.game_type,
             "title": cls.title,
             "subtitle": cls.subtitle,
+            "category": cls.category,
             "status": "playable",
             "min_players": cls.min_players,
             "max_players": cls.max_players,
+            "player_label": cls.player_label,
         }
 
     def set_player_name(self, symbol: str, name: str) -> None:

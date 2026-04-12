@@ -344,6 +344,83 @@
           </div>
         </aside>
       </div>
+
+      <div id="wordSpyView" class="arena hidden">
+        <div class="board-wrap">
+          <div class="wordspy-topline">
+            <div class="stat-chip">
+              <span>フェーズ</span>
+              <strong id="wordSpyPhaseLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>現在チーム</span>
+              <strong id="wordSpyTeamLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>ヒント</span>
+              <strong id="wordSpyHintLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>ヒント数</span>
+              <strong id="wordSpyCountLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>残り推理</span>
+              <strong id="wordSpyRemainingLabel">-</strong>
+            </div>
+          </div>
+
+          <div id="wordSpyBoard" class="wordspy-board"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="wordSpyStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <button id="wordSpyStartButton" class="primary">このメンバーで開始</button>
+            <p id="wordSpyStartNote" class="microcopy">4人以上で、赤マスター・赤スパイ・青マスター・青スパイがそろうと開始できます。</p>
+          </div>
+
+          <div id="wordSpyRematchPanel" class="panel-block hidden">
+            <p class="eyebrow">もう一度やる</p>
+            <button id="wordSpyRematchButton" class="primary">同じ部屋で再戦</button>
+            <p class="microcopy">単語カードを引き直して、同じメンバーで再戦します。</p>
+          </div>
+
+          <div id="wordSpySetupPanel" class="panel-block">
+            <p class="eyebrow">役職とチーム分け</p>
+            <div id="wordSpyRoleBadge" class="wordspy-role-badge">あなたの役職: -</div>
+            <div id="wordSpyAssignmentsPanel" class="wordspy-assignments"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">操作</p>
+            <p id="wordSpyGuideLabel" class="microcopy">マスターはヒントを、スパイはカードを選びます。</p>
+            <label id="wordSpyClueField" class="field">
+              <span>ヒントの単語</span>
+              <input id="wordSpyClueInput" maxlength="24" placeholder="例: 宇宙">
+            </label>
+            <label id="wordSpyCountField" class="field">
+              <span>ヒントの数字</span>
+              <input id="wordSpyCountInput" type="number" min="1" max="9" step="1" value="1">
+            </label>
+            <div class="action-grid">
+              <button id="wordSpyClueButton" class="primary">ヒントを出す</button>
+              <button id="wordSpyEndTurnButton">推理を終了</button>
+              <button id="wordSpyResignButton" class="danger">降参する</button>
+            </div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">チーム情報</p>
+            <div id="wordSpyTeamsPanel" class="players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ゲームログ</p>
+            <div id="wordSpyLogPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
 

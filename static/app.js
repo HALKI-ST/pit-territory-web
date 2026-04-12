@@ -14,9 +14,11 @@ const state = {
 const boardEl = document.getElementById("board");
 const auctionBoardEl = document.getElementById("auctionBoard");
 const auctionBoardLinesEl = document.getElementById("auctionBoardLines");
+const mouseBoardEl = document.getElementById("mouseBoard");
 const gameSectionEl = document.getElementById("gameSection");
 const pitGameViewEl = document.getElementById("pitGameView");
 const auctionGameViewEl = document.getElementById("auctionGameView");
+const mouseTrapViewEl = document.getElementById("mouseTrapView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -49,6 +51,13 @@ const goalRewardBannerEl = document.getElementById("goalRewardBanner");
 const auctionTurnDetailEl = document.getElementById("auctionTurnDetail");
 const replayTurnLabelEl = document.getElementById("replayTurnLabel");
 const replaySummaryLabelEl = document.getElementById("replaySummaryLabel");
+const mousePhaseLabelEl = document.getElementById("mousePhaseLabel");
+const mouseWallLabelEl = document.getElementById("mouseWallLabel");
+const mouseTurnLabelEl = document.getElementById("mouseTurnLabel");
+const mouseGuideLabelEl = document.getElementById("mouseGuideLabel");
+const mouseBuildLogEl = document.getElementById("mouseBuildLog");
+const mouseChaseLogEl = document.getElementById("mouseChaseLog");
+const mouseRematchPanelEl = document.getElementById("mouseRematchPanel");
 
 const settingEls = {
   startingBalance: document.getElementById("settingStartingBalance"),
@@ -62,6 +71,8 @@ const settingEls = {
   backwardSteps: document.getElementById("settingBackwardSteps"),
   blankCount: document.getElementById("settingBlankCount"),
   netTileTotal: document.getElementById("settingNetTileTotal"),
+  moneyTileMin: document.getElementById("settingMoneyTileMin"),
+  moneyTileMax: document.getElementById("settingMoneyTileMax"),
   tapePosition: document.getElementById("settingTapePosition"),
   tapeBonus: document.getElementById("settingTapeBonus"),
   goalRewards: document.getElementById("settingGoalRewards"),
@@ -171,6 +182,7 @@ function renderGameCards() {
     button.innerHTML = `
       <strong>${game.title}</strong>
       <span>${game.subtitle}</span>
+      <span>${game.min_players === game.max_players ? `${game.min_players}人用` : `${game.min_players}-${game.max_players}人用`}</span>
     `;
     button.addEventListener("click", () => {
       state.selectedGameType = game.game_type;
@@ -315,11 +327,14 @@ function render() {
 
   pitGameViewEl.classList.toggle("hidden", game.game_type !== "pit_territory");
   auctionGameViewEl.classList.toggle("hidden", game.game_type !== "auction_race");
+  mouseTrapViewEl.classList.toggle("hidden", game.game_type !== "mouse_trap");
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
   } else if (game.game_type === "auction_race") {
     renderAuctionRace(game, myPlayer);
+  } else if (game.game_type === "mouse_trap") {
+    renderMouseTrap(game);
   }
 }
 
@@ -480,6 +495,8 @@ function syncAuctionSettingsForm(game) {
   settingEls.backwardSteps.value = settings.backward_steps ?? "";
   settingEls.blankCount.value = settings.blank_count ?? "";
   settingEls.netTileTotal.value = settings.net_tile_total ?? "";
+  settingEls.moneyTileMin.value = settings.money_tile_min ?? "";
+  settingEls.moneyTileMax.value = settings.money_tile_max ?? "";
   settingEls.tapePosition.value = settings.tape_bonus_position ?? "";
   settingEls.tapeBonus.value = settings.tape_bonus_value ?? "";
   settingEls.goalRewards.value = settings.goal_rewards ?? "";
@@ -508,6 +525,8 @@ function collectAuctionSettings() {
     forward_steps: forwardSteps,
     backward_steps: backwardSteps,
     net_tile_total: emptyToNull(settingEls.netTileTotal.value),
+    money_tile_min: emptyToNull(settingEls.moneyTileMin.value),
+    money_tile_max: emptyToNull(settingEls.moneyTileMax.value),
     tape_bonus_position: emptyToNull(settingEls.tapePosition.value),
     tape_bonus_value: emptyToNull(settingEls.tapeBonus.value),
     goal_rewards: settingEls.goalRewards.value.trim(),
@@ -850,6 +869,381 @@ function renderAuctionLogs(game) {
   }
 }
 
+const mouseSelection = {
+  humanPiece: null,
+};
+
+function legacyRenderMouseTrap(game) {
+  if (game.phase !== "chase" || game.active_side !== "H") {
+    mouseSelection.humanPiece = null;
+  }
+  mouseRematchPanelEl.classList.toggle("hidden", !game.game_over);
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : game.phase === "build"
+      ? `${game.active_side === "H" ? "人間" : "ネズミ"} が壁を置く番`
+      : `${game.chase_turn}ターン目 / ${game.active_side === "H" ? "人間" : "ネズミ"} の番`;
+
+  mousePhaseLabelEl.textContent = game.phase === "build" ? "壁作成" : "追跡";
+  mouseWallLabelEl.textContent = `${game.wall_count}/${game.max_walls}`;
+  mouseTurnLabelEl.textContent = game.phase === "build" ? "-" : `${game.chase_turn}/${game.max_chase_turns}`;
+  mouseGuideLabelEl.textContent = mouseGuideText(game);
+
+  renderMouseBoard(game);
+  renderSimpleLog(mouseBuildLogEl, game.build_log || []);
+  renderSimpleLog(mouseChaseLogEl, game.chase_log || []);
+}
+
+function legacyRenderMouseBoard(game) {
+  mouseBoardEl.innerHTML = "";
+  mouseBoardEl.style.gridTemplateColumns = "";
+
+  const humanCells = new Map();
+  game.humans.forEach((cell, index) => {
+    const key = `${cell[0]},${cell[1]}`;
+    if (!humanCells.has(key)) humanCells.set(key, []);
+    humanCells.get(key).push(index === 0 ? "H1" : "H2");
+  });
+  const wallSet = new Set(game.walls || []);
+
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      const isCell = row % 2 === 0 && col % 2 === 0;
+      const isVertical = row % 2 === 0 && col % 2 === 1;
+      const isHorizontal = row % 2 === 1 && col % 2 === 0;
+      const node = document.createElement("button");
+      node.type = "button";
+
+      if (isCell) {
+        const cell = [row / 2, col / 2];
+        node.className = "mouse-cell";
+        node.textContent = "";
+        const key = `${cell[0]},${cell[1]}`;
+        const humans = humanCells.get(key) || [];
+        if (humans.length > 0) {
+          const wrap = document.createElement("div");
+          wrap.className = "mouse-piece-wrap";
+          for (const human of humans) {
+            const piece = document.createElement("div");
+            piece.className = `mouse-piece human-piece ${mouseSelection.humanPiece === human ? "selected" : ""}`;
+            piece.textContent = "×";
+            piece.addEventListener("click", (event) => {
+              event.stopPropagation();
+              if (state.gameState?.active_side === "H" && state.playerSymbol === "H" && state.gameState.phase === "chase" && !state.gameState.game_over) {
+                mouseSelection.humanPiece = human;
+                render();
+              }
+            });
+            wrap.appendChild(piece);
+          }
+          node.appendChild(wrap);
+        }
+        if (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]) {
+          const mousePiece = document.createElement("div");
+          mousePiece.className = "mouse-piece mouse-token";
+          mousePiece.textContent = "□";
+          node.appendChild(mousePiece);
+        }
+        const label = document.createElement("span");
+        label.className = "mouse-cell-label";
+        label.textContent = `${cell[0] + 1},${cell[1] + 1}`;
+        node.appendChild(label);
+        node.addEventListener("click", () => handleMouseCellClick(game, cell));
+      } else if (isVertical) {
+        const edgeId = `v:${row / 2}:${(col - 1) / 2}`;
+        node.className = `mouse-edge vertical ${wallSet.has(edgeId) ? "wall-on" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else if (isHorizontal) {
+        const edgeId = `h:${(row - 1) / 2}:${col / 2}`;
+        node.className = `mouse-edge horizontal ${wallSet.has(edgeId) ? "wall-on" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else {
+        node.className = "mouse-joint";
+        node.disabled = true;
+      }
+      mouseBoardEl.appendChild(node);
+    }
+  }
+}
+
+function legacyMouseGuideText(game) {
+  if (game.game_over) {
+    return "対戦終了です。ログを見ながら感想戦できます。";
+  }
+  if (game.phase === "build") {
+    return `${game.active_side === "H" ? "人間" : "ネズミ"} が壁を1本置きます。袋小路と4本交差は禁止です。`;
+  }
+  if (game.active_side === "H") {
+    return "人間は動かす×を選んでから、隣のマスを押してください。";
+  }
+  return game.mouse_steps_taken === 0
+    ? "ネズミは1歩目を選んでください。必ず2マス動きます。"
+    : "ネズミは続けて2歩目を選んでください。";
+}
+
+function handleMouseWallClick(game, edgeId) {
+  if (game.phase !== "build" || game.game_over || state.playerSymbol !== game.active_side) {
+    return;
+  }
+  sendAction({ action: "place_wall", edge_id: edgeId });
+}
+
+function legacyHandleMouseCellClick(game, cell) {
+  if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_side) {
+    return;
+  }
+
+  if (game.active_side === "H") {
+    if (!mouseSelection.humanPiece) {
+      messageLabelEl.textContent = "先に動かす人間を選んでください。";
+      return;
+    }
+    sendAction({ action: "move_human", cell, piece: mouseSelection.humanPiece });
+    mouseSelection.humanPiece = null;
+    return;
+  }
+
+  sendAction({ action: "move_mouse", cell });
+}
+
+function renderSimpleLog(target, items) {
+  target.innerHTML = "";
+  if (!items || items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "log-item";
+    empty.textContent = "まだログはありません。";
+    target.appendChild(empty);
+    return;
+  }
+  for (const line of items.slice().reverse()) {
+    const item = document.createElement("div");
+    item.className = "log-item";
+    item.textContent = line;
+    target.appendChild(item);
+  }
+}
+
+function renderGoalRewards(game) {
+  const rewards = (game.goal_rewards || [])
+    .map((item) => `${item.place}位 ${yen(item.reward)}`)
+    .join(" / ");
+  const nonGoalText = `${Math.max(2, Object.keys(game.players).length)}人戦では最下位にゴールボーナスなし`;
+  const blankText = `空きマス ${game.settings.blank_count}`;
+  const rangeText = `金額マス ${yen(game.settings.money_tile_min)}-${yen(game.settings.money_tile_max)} ランダム`;
+  const tapeText = game.tape_bonus_position != null
+    ? `先着テープ ${game.tape_bonus_position} マス目で ${yen(game.tape_bonus_value)}`
+    : `先着テープ ${yen(game.tape_bonus_value)}`;
+  goalRewardBannerEl.textContent = `${tapeText} / ゴール報酬: ${rewards} / ${rangeText} / ${nonGoalText} / ${blankText}`;
+}
+
+function mouseCellKey(cell) {
+  return `${cell[0]},${cell[1]}`;
+}
+
+function mouseIsBlocked(game, from, to) {
+  const wallSet = new Set(game.walls || []);
+  if (from[0] === to[0]) {
+    const row = from[0];
+    const col = Math.min(from[1], to[1]);
+    return wallSet.has(`v:${row}:${col}`);
+  }
+  const row = Math.min(from[0], to[0]);
+  const col = from[1];
+  return wallSet.has(`h:${row}:${col}`);
+}
+
+function mouseNeighbors(game, cell) {
+  const list = [];
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const next = [cell[0] + dr, cell[1] + dc];
+    if (next[0] < 0 || next[0] >= 5 || next[1] < 0 || next[1] >= 5) {
+      continue;
+    }
+    if (!mouseIsBlocked(game, cell, next)) {
+      list.push(next);
+    }
+  }
+  return list;
+}
+
+function mouseHumansAtCell(game, cell) {
+  const humans = [];
+  if (game.humans[0][0] === cell[0] && game.humans[0][1] === cell[1]) humans.push("H1");
+  if (game.humans[1][0] === cell[0] && game.humans[1][1] === cell[1]) humans.push("H2");
+  return humans;
+}
+
+function mouseGuideText(game) {
+  if (game.game_over) {
+    return "対戦終了です。ログを見ながら感想戦できます。";
+  }
+  if (game.phase === "build") {
+    if (state.playerSymbol === game.active_side) {
+      return `${game.active_side === "H" ? "人間" : "ネズミ"}側です。明るい線の場所を押して壁を1本置いてください。`;
+    }
+    return `${game.active_side === "H" ? "人間" : "ネズミ"}側の壁配置ターンです。相手の操作を待ってください。`;
+  }
+  if (state.playerSymbol !== game.active_side) {
+    return `いまは ${game.active_side === "H" ? "人間" : "ネズミ"} 側の番です。あなたは ${state.playerSymbol === "H" ? "人間" : "ネズミ"} 側なので待機してください。`;
+  }
+  if (game.active_side === "H") {
+    return "H1 か H2 を押して選択し、光っている隣マスを押してください。";
+  }
+  return game.mouse_steps_taken === 0
+    ? "ネズミの1歩目です。光っている隣マスへ移動してください。"
+    : "ネズミの2歩目です。続けてもう1マス移動してください。";
+}
+
+function renderMouseTrap(game) {
+  if (game.phase !== "chase" || game.active_side !== "H") {
+    mouseSelection.humanPiece = null;
+  }
+  mouseRematchPanelEl.classList.toggle("hidden", !game.game_over);
+  document.getElementById("mouseResetSelectionButton").disabled = game.game_over;
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : game.phase === "build"
+      ? `${game.active_side === "H" ? "壁作成: 人間" : "壁作成: ネズミ"}`
+      : `${game.chase_turn}ターン目 / ${game.active_side === "H" ? "人間" : "ネズミ"} の番`;
+
+  mousePhaseLabelEl.textContent = game.phase === "build" ? "壁作成" : "追跡";
+  mouseWallLabelEl.textContent = `${game.wall_count}/${game.max_walls}`;
+  mouseTurnLabelEl.textContent = game.phase === "build" ? "-" : `${game.chase_turn}/${game.max_chase_turns}`;
+  mouseGuideLabelEl.textContent = mouseGuideText(game);
+
+  renderMouseBoard(game);
+  renderSimpleLog(mouseBuildLogEl, game.build_log || []);
+  renderSimpleLog(mouseChaseLogEl, game.chase_log || []);
+}
+
+function renderMouseBoard(game) {
+  mouseBoardEl.innerHTML = "";
+  mouseBoardEl.style.gridTemplateColumns = "";
+
+  const humanCells = new Map();
+  game.humans.forEach((cell, index) => {
+    const key = mouseCellKey(cell);
+    if (!humanCells.has(key)) humanCells.set(key, []);
+    humanCells.get(key).push(index === 0 ? "H1" : "H2");
+  });
+  const wallSet = new Set(game.walls || []);
+  const selectedOrigin = mouseSelection.humanPiece === "H1"
+    ? game.humans[0]
+    : mouseSelection.humanPiece === "H2"
+      ? game.humans[1]
+      : null;
+  const validHumanMoves = new Set(
+    selectedOrigin
+      ? mouseNeighbors(game, selectedOrigin)
+        .filter((cell) => !mouseHumansAtCell(game, cell).length || (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]))
+        .map((cell) => mouseCellKey(cell))
+      : [],
+  );
+  const validMouseMoves = new Set(
+    mouseNeighbors(game, game.mouse)
+      .filter((cell) => mouseHumansAtCell(game, cell).length === 0)
+      .map((cell) => mouseCellKey(cell)),
+  );
+  const isHumanTurn = game.phase === "chase" && game.active_side === "H" && state.playerSymbol === "H" && !game.game_over;
+  const isMouseTurn = game.phase === "chase" && game.active_side === "M" && state.playerSymbol === "M" && !game.game_over;
+  const isBuildTurn = game.phase === "build" && state.playerSymbol === game.active_side && !game.game_over;
+
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      const isCell = row % 2 === 0 && col % 2 === 0;
+      const isVertical = row % 2 === 0 && col % 2 === 1;
+      const isHorizontal = row % 2 === 1 && col % 2 === 0;
+      const node = document.createElement("button");
+      node.type = "button";
+
+      if (isCell) {
+        const cell = [row / 2, col / 2];
+        const key = mouseCellKey(cell);
+        node.className = "mouse-cell";
+        const humans = humanCells.get(key) || [];
+
+        if (isHumanTurn && validHumanMoves.has(key)) {
+          node.classList.add("human-move-target");
+        }
+        if (isMouseTurn && validMouseMoves.has(key)) {
+          node.classList.add("mouse-move-target");
+        }
+        if (humans.length > 0 && isHumanTurn) {
+          node.classList.add("occupied-human-cell");
+        }
+
+        if (humans.length > 0) {
+          const wrap = document.createElement("div");
+          wrap.className = "mouse-piece-wrap";
+          for (const human of humans) {
+            const piece = document.createElement("div");
+            piece.className = `mouse-piece human-piece ${mouseSelection.humanPiece === human ? "selected" : ""}`;
+            piece.textContent = human;
+            piece.addEventListener("click", (event) => {
+              event.stopPropagation();
+              if (isHumanTurn) {
+                mouseSelection.humanPiece = human;
+                render();
+              }
+            });
+            wrap.appendChild(piece);
+          }
+          node.appendChild(wrap);
+        }
+
+        if (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]) {
+          const mousePiece = document.createElement("div");
+          mousePiece.className = "mouse-piece mouse-token";
+          mousePiece.textContent = "M";
+          node.appendChild(mousePiece);
+        }
+
+        const label = document.createElement("span");
+        label.className = "mouse-cell-label";
+        label.textContent = `${cell[0] + 1},${cell[1] + 1}`;
+        node.appendChild(label);
+        node.addEventListener("click", () => handleMouseCellClick(game, cell));
+      } else if (isVertical) {
+        const edgeId = `v:${row / 2}:${(col - 1) / 2}`;
+        node.className = `mouse-edge vertical ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else if (isHorizontal) {
+        const edgeId = `h:${(row - 1) / 2}:${col / 2}`;
+        node.className = `mouse-edge horizontal ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else {
+        node.className = "mouse-joint";
+        node.disabled = true;
+      }
+      mouseBoardEl.appendChild(node);
+    }
+  }
+}
+
+function handleMouseCellClick(game, cell) {
+  if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_side) {
+    return;
+  }
+
+  if (game.active_side === "H") {
+    const humans = mouseHumansAtCell(game, cell);
+    if (humans.length > 0) {
+      mouseSelection.humanPiece = humans[0];
+      render();
+      return;
+    }
+    if (!mouseSelection.humanPiece) {
+      messageLabelEl.textContent = "先に H1 か H2 を選んでください。";
+      return;
+    }
+    sendAction({ action: "move_human", cell, piece: mouseSelection.humanPiece });
+    mouseSelection.humanPiece = null;
+    return;
+  }
+
+  sendAction({ action: "move_mouse", cell });
+}
+
 function bindDirectionButton(buttonId, direction) {
   document.getElementById(buttonId).addEventListener("click", () => sendDirectionalAction(direction));
 }
@@ -901,6 +1295,12 @@ document.getElementById("submitBidButton").addEventListener("click", () => {
 });
 document.getElementById("judgeButton").addEventListener("click", () => sendAction({ action: "judge_round" }));
 document.getElementById("resignButton").addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("mouseResetSelectionButton").addEventListener("click", () => {
+  sendAction({ action: "resign" });
+});
+document.getElementById("mouseRematchButton").addEventListener("click", () => {
+  sendAction({ action: "rematch" });
+});
 document.getElementById("replayPrevButton").addEventListener("click", () => {
   state.replayTurn = Math.max(0, state.replayTurn - 1);
   render();

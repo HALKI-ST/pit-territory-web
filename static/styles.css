@@ -798,6 +798,190 @@ button.danger {
   margin-top: 4px;
 }
 
+.mouse-topline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.mouse-board {
+  --mouse-cell-size: 66px;
+  --mouse-wall-size: 14px;
+  display: grid;
+  gap: 0;
+  justify-content: start;
+  grid-template-columns: var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size);
+  grid-template-rows: var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size) var(--mouse-wall-size) var(--mouse-cell-size);
+  background: linear-gradient(145deg, rgba(45, 44, 41, 0.88), rgba(93, 88, 79, 0.92));
+  padding: 14px;
+  border-radius: 24px;
+}
+
+.mouse-cell,
+.mouse-edge,
+.mouse-joint {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  display: block;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.mouse-cell {
+  width: var(--mouse-cell-size);
+  height: var(--mouse-cell-size);
+  aspect-ratio: 1 / 1;
+  position: relative;
+  background: linear-gradient(145deg, #faf6ee, #efe5d5);
+  color: var(--ink);
+}
+
+.mouse-cell-label {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  font-size: 0.65rem;
+  color: rgba(41, 38, 33, 0.45);
+}
+
+.mouse-edge.vertical {
+  width: var(--mouse-wall-size);
+  height: var(--mouse-cell-size);
+  background: rgba(245, 240, 232, 0.12);
+  justify-self: stretch;
+  align-self: stretch;
+}
+
+.mouse-edge.horizontal {
+  width: var(--mouse-cell-size);
+  height: var(--mouse-wall-size);
+  background: rgba(245, 240, 232, 0.12);
+  justify-self: stretch;
+  align-self: stretch;
+}
+
+.mouse-edge.wall-on {
+  background: linear-gradient(145deg, #181818, #545454);
+}
+
+.mouse-joint {
+  width: var(--mouse-wall-size);
+  height: var(--mouse-wall-size);
+  justify-self: stretch;
+  align-self: stretch;
+}
+
+.mouse-piece-wrap {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.mouse-piece {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.human-piece {
+  background: linear-gradient(145deg, #1f5f8c, #0d3956);
+  color: #ffffff;
+  box-shadow: 0 6px 12px rgba(13, 57, 86, 0.28);
+}
+
+.human-piece.selected {
+  outline: 3px solid rgba(255, 233, 145, 0.9);
+}
+
+.mouse-token {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #d86c6c, #8d2a2a);
+  color: #ffffff;
+  box-shadow: 0 6px 12px rgba(141, 42, 42, 0.28);
+}
+
+.mouse-board {
+  width: fit-content;
+  margin: 0 auto;
+  justify-content: center;
+  background: linear-gradient(145deg, #6e675f, #4d4842);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 30px rgba(54, 45, 36, 0.18);
+}
+
+.mouse-cell {
+  border-radius: 14px;
+  border: 1px solid rgba(93, 78, 60, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.mouse-cell.occupied-human-cell {
+  cursor: pointer;
+}
+
+.mouse-cell.human-move-target {
+  background: linear-gradient(145deg, #eef6ff, #dceafe);
+  border-color: #5b8dc8;
+  box-shadow: 0 0 0 3px rgba(91, 141, 200, 0.2);
+}
+
+.mouse-cell.mouse-move-target {
+  background: linear-gradient(145deg, #fff0f0, #fde0e0);
+  border-color: #ca7272;
+  box-shadow: 0 0 0 3px rgba(202, 114, 114, 0.18);
+}
+
+.mouse-edge.vertical,
+.mouse-edge.horizontal {
+  border-radius: 999px;
+  background: rgba(250, 244, 235, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.mouse-edge.wall-slot {
+  background: rgba(255, 236, 179, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(114, 84, 21, 0.25);
+}
+
+.mouse-edge.wall-on {
+  background: linear-gradient(145deg, #1f1b18, #3a312c);
+  box-shadow: 0 0 0 1px rgba(255, 214, 102, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.mouse-piece {
+  width: 28px;
+  height: 28px;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+}
+
+.human-piece {
+  background: linear-gradient(145deg, #2d7db3, #114f7a);
+}
+
+.mouse-token {
+  width: 30px;
+  height: 30px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #dc7a7a, #9a3131);
+}
+
 .replay-controls {
   display: grid;
   grid-template-columns: auto 1fr auto;

@@ -244,6 +244,8 @@ def apply_player_action(room: Room, symbol: str, payload: dict) -> None:
             bid_amount=payload.get("bid_amount"),
             direction=payload.get("direction"),
             cell=payload.get("cell"),
+            edge_id=payload.get("edge_id"),
+            piece=payload.get("piece"),
         )
         return
 

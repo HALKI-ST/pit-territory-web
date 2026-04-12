@@ -23,6 +23,8 @@ DEFAULT_BACKWARD_COUNT = 2
 DEFAULT_FORWARD_STEPS = 3
 DEFAULT_BACKWARD_STEPS = 3
 DEFAULT_NET_TILE_TOTAL = 10_000
+DEFAULT_MONEY_TILE_MIN = 1_000
+DEFAULT_MONEY_TILE_MAX = 5_000
 SNAKE_COLUMNS = 6
 
 
@@ -94,6 +96,8 @@ class AuctionRaceGame:
         self.forward_steps = DEFAULT_FORWARD_STEPS
         self.backward_steps = DEFAULT_BACKWARD_STEPS
         self.net_tile_total = DEFAULT_NET_TILE_TOTAL
+        self.money_tile_min = DEFAULT_MONEY_TILE_MIN
+        self.money_tile_max = DEFAULT_MONEY_TILE_MAX
         self.quick_bids = list(DEFAULT_QUICK_BIDS)
         self.goal_rewards = list(DEFAULT_GOAL_REWARDS)
         self.board_tiles: List[dict] = []
@@ -198,10 +202,17 @@ class AuctionRaceGame:
         self.forward_steps = self._parse_non_negative_int(settings.get("forward_steps"), self.forward_steps, minimum=1)
         self.backward_steps = self._parse_non_negative_int(settings.get("backward_steps"), self.backward_steps, minimum=1)
         self.net_tile_total = self._parse_int(settings.get("net_tile_total"), self.net_tile_total)
+        self.money_tile_min = self._parse_non_negative_int(settings.get("money_tile_min"), self.money_tile_min, minimum=1_000)
+        self.money_tile_max = self._parse_non_negative_int(settings.get("money_tile_max"), self.money_tile_max, minimum=1_000)
         self.tape_bonus_value = self._parse_non_negative_int(settings.get("tape_bonus_value"), self.tape_bonus_value, minimum=0)
         tape_position = self._parse_optional_int(settings.get("tape_bonus_position"), minimum=1)
         goal_rewards = self._parse_goal_rewards(settings.get("goal_rewards"), self.goal_rewards)
         tile_layout_text = str(settings.get("tile_layout_text", self.tile_layout_text or "")).strip()
+
+        if self.money_tile_min % 1_000 != 0 or self.money_tile_max % 1_000 != 0:
+            raise GameError("金額マスの下限と上限は 1000 円単位で設定してください。")
+        if self.money_tile_min > self.money_tile_max:
+            raise GameError("金額マスの下限は上限以下にしてください。")
 
         configured_tiles = self.plus_count + self.minus_count + self.forward_count + self.backward_count
         middle_count = self.track_length_setting - 1
@@ -242,6 +253,8 @@ class AuctionRaceGame:
             self.forward_count,
             self.backward_count,
             self.net_tile_total,
+            self.money_tile_min,
+            self.money_tile_max,
         )
         self.tape_bonus_claimed_by = None
         self.finished_order = []
@@ -291,7 +304,10 @@ class AuctionRaceGame:
         forward_count: int,
         backward_count: int,
         net_tile_total: int,
+        money_tile_min: int,
+        money_tile_max: int,
         shuffle_events: bool = True,
+        randomize_values: bool = True,
     ) -> List[dict]:
         tiles = [{"kind": "start", "value": 0, "label": "スタート"}]
         middle_count = track_length - 1
@@ -303,7 +319,14 @@ class AuctionRaceGame:
         else:
             configured_tiles = plus_count + minus_count + forward_count + backward_count
             blanks = max(0, middle_count - configured_tiles)
-            plus_values, minus_values = self._build_money_values(plus_count, minus_count, net_tile_total)
+            plus_values, minus_values = self._build_money_values(
+                plus_count,
+                minus_count,
+                net_tile_total,
+                money_tile_min,
+                money_tile_max,
+                randomize=randomize_values,
+            )
             events: List[dict] = []
 
             for value in plus_values:
@@ -354,27 +377,94 @@ class AuctionRaceGame:
                 tiles.append({"kind": "blank", "value": 0, "label": "空き"})
         return tiles
 
-    def _build_money_values(self, plus_count: int, minus_count: int, net_tile_total: int) -> tuple[list[int], list[int]]:
-        minus_total = minus_count * 2_000
-        plus_total = minus_total + net_tile_total
-        if plus_count == 0 and plus_total > 0:
-            raise GameError("合計値をプラスにするには青マスを1つ以上入れてください。")
-        if minus_count == 0 and minus_total > 0 and plus_total < minus_total:
-            raise GameError("赤マスがないため合計値を保てません。")
-        return self._distribute_total(plus_total, plus_count), self._distribute_total(minus_total, minus_count)
+    def _build_money_values(
+        self,
+        plus_count: int,
+        minus_count: int,
+        net_tile_total: int,
+        money_tile_min: int,
+        money_tile_max: int,
+        randomize: bool = True,
+    ) -> tuple[list[int], list[int]]:
+        min_units = money_tile_min // 1_000
+        max_units = money_tile_max // 1_000
+        target_units = net_tile_total // 1_000
 
-    def _distribute_total(self, total: int, count: int) -> list[int]:
+        if plus_count == 0 and minus_count == 0:
+            if target_units != 0:
+                raise GameError("金額マスがないため、青赤マスの合計値を設定できません。")
+            return [], []
+        if plus_count == 0:
+            if target_units > 0:
+                raise GameError("合計値をプラスにするには青マスを1つ以上入れてください。")
+            minus_total = (-target_units) * 1_000
+            distributor = self._distribute_total_random if randomize else self._distribute_total_bounded
+            return [], distributor(minus_total, minus_count, money_tile_min, money_tile_max)
+        if minus_count == 0:
+            plus_total = target_units * 1_000
+            distributor = self._distribute_total_random if randomize else self._distribute_total_bounded
+            return distributor(plus_total, plus_count, money_tile_min, money_tile_max), []
+
+        minus_low = minus_count * min_units
+        minus_high = minus_count * max_units
+        plus_low = plus_count * min_units
+        plus_high = plus_count * max_units
+
+        feasible_minus_low = max(minus_low, plus_low - target_units)
+        feasible_minus_high = min(minus_high, plus_high - target_units)
+        if feasible_minus_low > feasible_minus_high:
+            raise GameError("金額マスの下限・上限と合計値の設定が両立していません。")
+
+        if randomize:
+            minus_total_units = random.randint(feasible_minus_low, feasible_minus_high)
+        else:
+            minus_total_units = (feasible_minus_low + feasible_minus_high) // 2
+
+        plus_total_units = minus_total_units + target_units
+        minus_total = minus_total_units * 1_000
+        plus_total = plus_total_units * 1_000
+
+        distributor = self._distribute_total_random if randomize else self._distribute_total_bounded
+        plus_values = distributor(plus_total, plus_count, money_tile_min, money_tile_max)
+        minus_values = distributor(minus_total, minus_count, money_tile_min, money_tile_max)
+        return plus_values, minus_values
+
+    def _distribute_total_bounded(self, total: int, count: int, minimum: int, maximum: int) -> list[int]:
         if count <= 0:
             return []
-        if total <= 0:
-            return [1_000] * count
-        if total < count * 1_000:
-            raise GameError(f"{count} 個のマスに配るには、合計値を最低でも {count * 1_000:,} 円にしてください。")
+        if total < count * minimum or total > count * maximum:
+            raise GameError("金額マスの合計値が上下限設定と合っていません。")
 
-        base_units = total // 1_000
-        base = base_units // count
-        remainder = base_units % count
-        return [(base + (1 if index < remainder else 0)) * 1_000 for index in range(count)]
+        values = [minimum] * count
+        remaining = total - count * minimum
+        step_cap = maximum - minimum
+        index = 0
+        while remaining > 0:
+            add = min(1_000, remaining, step_cap - (values[index] - minimum))
+            if add > 0:
+                values[index] += add
+                remaining -= add
+            index = (index + 1) % count
+        return values
+
+    def _distribute_total_random(self, total: int, count: int, minimum: int, maximum: int) -> list[int]:
+        if count <= 0:
+            return []
+        if total < count * minimum or total > count * maximum:
+            raise GameError("金額マスの合計値が上下限設定と合っていません。")
+
+        min_units = minimum // 1_000
+        max_units = maximum // 1_000
+        remaining_units = total // 1_000
+        values_units: list[int] = []
+        for index in range(count):
+            rest = count - index - 1
+            low = max(min_units, remaining_units - rest * max_units)
+            high = min(max_units, remaining_units - rest * min_units)
+            values_units.append(random.randint(low, high))
+            remaining_units -= values_units[-1]
+        random.shuffle(values_units)
+        return [value * 1_000 for value in values_units]
 
     def _place_bid(self, player: AuctionPlayerState, bid_amount: Optional[int]) -> None:
         if self.awaiting_judge:
@@ -642,6 +732,8 @@ class AuctionRaceGame:
             "backward_steps": self.backward_steps,
             "blank_count": blank_count,
             "net_tile_total": self.net_tile_total,
+            "money_tile_min": self.money_tile_min,
+            "money_tile_max": self.money_tile_max,
             "tape_bonus_position": self.tape_bonus_position,
             "tape_bonus_value": self.tape_bonus_value,
             "goal_rewards": ",".join(str(value) for value in self.goal_rewards),
@@ -672,7 +764,10 @@ class AuctionRaceGame:
             self.forward_count,
             self.backward_count,
             self.net_tile_total,
+            self.money_tile_min,
+            self.money_tile_max,
             shuffle_events=False,
+            randomize_values=False,
         )
         return {
             "game_type": self.game_type,

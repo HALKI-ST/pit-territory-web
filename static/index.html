@@ -202,6 +202,14 @@
                 <input id="settingNetTileTotal" type="number" step="1000">
               </label>
               <label class="field">
+                <span>金額マス下限</span>
+                <input id="settingMoneyTileMin" type="number" min="1000" step="1000">
+              </label>
+              <label class="field">
+                <span>金額マス上限</span>
+                <input id="settingMoneyTileMax" type="number" min="1000" step="1000">
+              </label>
+              <label class="field">
                 <span>空きマス数</span>
                 <input id="settingBlankCount" type="number" disabled>
               </label>
@@ -226,7 +234,7 @@
               <button id="saveSettingsButton" class="primary">設定を保存</button>
               <button id="closeSettingsButton">閉じる</button>
             </div>
-            <p class="microcopy">マス配置はカンマ区切りです。正の数は青、負の数は赤、0 は空きマスになります。空欄ならランダム配置です。</p>
+            <p class="microcopy">マス配置はカンマ区切りです。正の数は青、負の数は赤、0 は空きマスになります。空欄なら金額マスは下限と上限の範囲でランダム配置されます。</p>
           </div>
 
           <div class="panel-block bank-panel">
@@ -289,6 +297,50 @@
           <div class="panel-block">
             <p class="eyebrow">試合ログ / 感想戦</p>
             <div id="auctionLogPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="mouseTrapView" class="arena hidden">
+        <div class="board-wrap">
+          <div class="mouse-topline">
+            <div class="stat-chip">
+              <span>フェーズ</span>
+              <strong id="mousePhaseLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>壁本数</span>
+              <strong id="mouseWallLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>追跡ターン</span>
+              <strong id="mouseTurnLabel">-</strong>
+            </div>
+          </div>
+          <div id="mouseBoard" class="mouse-board"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="mouseRematchPanel" class="panel-block hidden">
+            <p class="eyebrow">もう一度やる</p>
+            <button id="mouseRematchButton" class="primary">同じ部屋で再戦</button>
+            <p class="microcopy">同じ部屋のまま、ネズミとりをもう一度始めます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">操作</p>
+            <p id="mouseGuideLabel" class="microcopy">壁を作るフェーズでは線の位置をクリックします。</p>
+            <button id="mouseResetSelectionButton" class="danger">降参する</button>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">壁作成ログ</p>
+            <div id="mouseBuildLog" class="log-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">追跡ログ</p>
+            <div id="mouseChaseLog" class="log-panel"></div>
           </div>
         </aside>
       </div>

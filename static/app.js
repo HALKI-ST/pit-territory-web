@@ -1505,7 +1505,6 @@ function renderWordSpyTeams(game) {
 }
 
 function renderMorningAnswer(game) {
-  const host = isHost(game);
   const isMaster = Boolean(game.viewer_is_master);
   const inWriting = game.phase === "writing";
   const inRevealing = game.phase === "revealing";
@@ -1539,9 +1538,10 @@ function renderMorningAnswer(game) {
   document.getElementById("morningAnswerInput").disabled = !inWriting || game.paused;
   document.getElementById("morningSubmitButton").disabled = !inWriting || game.paused;
   document.getElementById("morningOpenButton").disabled = !canOpen;
-  document.getElementById("morningPauseButton").disabled = !host || !(game.phase === "writing" || game.phase === "paused");
+  document.getElementById("morningPauseButton").disabled = !isHost(game) || !(game.phase === "writing" || game.phase === "paused");
   document.getElementById("morningPauseButton").textContent = game.paused ? "再開" : "一時停止";
-  document.getElementById("morningNextRoundButton").disabled = !host || game.phase !== "finished";
+  document.getElementById("morningRevealButton").disabled = !isMaster || !["writing", "paused"].includes(game.phase);
+  document.getElementById("morningNextRoundButton").disabled = !isHost(game) || game.phase !== "finished";
   document.getElementById("morningJudgeButton").disabled = !isMaster || !inJudging;
 
   renderMorningSeats(game);
@@ -1558,8 +1558,8 @@ function renderMorningSeats(game) {
     const player = game.players?.[symbol];
     if (!player) return;
     const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
-    const x = 50 + Math.cos(angle) * 38;
-    const y = 50 + Math.sin(angle) * 38;
+    const x = 50 + Math.cos(angle) * 31;
+    const y = 50 + Math.sin(angle) * 31;
     const seat = document.createElement("div");
     seat.className = `morning-seat ${player.is_master ? "master" : ""} ${player.has_crown ? "crown" : ""}`;
     seat.style.left = `${x}%`;
@@ -1862,6 +1862,7 @@ document.getElementById("morningSubmitButton").addEventListener("click", () => {
 });
 document.getElementById("morningOpenButton").addEventListener("click", () => sendAction({ action: "open_answer" }));
 document.getElementById("morningPauseButton").addEventListener("click", () => sendAction({ action: "toggle_pause" }));
+document.getElementById("morningRevealButton").addEventListener("click", () => sendAction({ action: "begin_reveal" }));
 document.getElementById("morningNextRoundButton").addEventListener("click", () => sendAction({ action: "next_round" }));
 document.getElementById("morningResignButton").addEventListener("click", () => sendAction({ action: "resign" }));
 document.getElementById("morningJudgeButton").addEventListener("click", () => {

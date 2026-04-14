@@ -45,7 +45,7 @@ class MorningAnswerPlayer:
 
 class MorningAnswerGame:
     game_type = "morning_answer"
-    title = "朝からそれ正解"
+    title = "Morning Answer"
     subtitle = "頭文字とお題に合わせて回答し、マスターが一番よかった答えを選ぶ会話ゲーム。"
     category = "classic"
     min_players = 2
@@ -121,6 +121,9 @@ class MorningAnswerGame:
         if action == "toggle_pause":
             self.toggle_pause()
             return
+        if action == "begin_reveal":
+            self.begin_reveal()
+            return
         if action == "next_round":
             self.next_round()
             return
@@ -143,6 +146,9 @@ class MorningAnswerGame:
             return
         if action == "open_answer":
             self._open_answer(symbol)
+            return
+        if action == "begin_reveal":
+            self._begin_reveal_by_player(symbol)
             return
         if action == "choose_winners":
             self._choose_winners(symbol, winner_symbols or [])
@@ -187,6 +193,21 @@ class MorningAnswerGame:
             raise GameError("勝者選出が終わってから次に進めます。")
         self._rotate_master()
         self._begin_round()
+
+    def begin_reveal(self) -> None:
+        if not self.started:
+            raise GameError("まだゲームが始まっていません。")
+        if self.phase not in {"writing", "paused"}:
+            raise GameError("回答フェーズ中だけ公開に進めます。")
+        self.paused = False
+        self.round_deadline = None
+        self.phase = "revealing"
+        self.message = "公開フェーズです。回答した人からオープンしてください。"
+
+    def _begin_reveal_by_player(self, symbol: str) -> None:
+        if symbol != self.master_symbol:
+            raise GameError("公開へ進めるのはこのラウンドのマスターだけです。")
+        self.begin_reveal()
 
     def to_public_dict(self, viewer_symbol: str = "") -> dict:
         self._advance_time()
@@ -277,13 +298,8 @@ class MorningAnswerGame:
 
     def _advance_time(self) -> None:
         if self.phase == "writing" and not self.paused and self.round_deadline is not None and time.time() >= self.round_deadline:
-            self.phase = "revealing"
             self.round_deadline = None
-            self.message = "回答時間が終わりました。各自でオープンしてください。"
-        if self.phase == "writing" and self._all_submitted():
-            self.phase = "revealing"
-            self.round_deadline = None
-            self.message = "全員が回答しました。オープンしてください。"
+            self.message = "時間は終了しました。マスターが公開へ進むを押してください。"
 
     def _remaining_seconds(self) -> int:
         if self.phase == "paused":
@@ -300,8 +316,6 @@ class MorningAnswerGame:
         answer = answer_text.strip()
         if not answer:
             raise GameError("回答を入力してください。")
-        if not answer.startswith(self.prompt_initial):
-            raise GameError(f"「{self.prompt_initial}」で始まる回答を入力してください。")
         self.submissions[symbol]["text"] = answer[:40]
         self.message = f"{self.players[symbol].name} が回答しました。"
         self._advance_time()

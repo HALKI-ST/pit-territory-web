@@ -1223,7 +1223,7 @@ button.danger {
 
 .morning-seat-ring {
   position: relative;
-  min-height: 420px;
+  min-height: 320px;
   margin-bottom: 18px;
   border-radius: 28px;
   background:
@@ -1235,13 +1235,13 @@ button.danger {
 
 .morning-seat {
   position: absolute;
-  width: 150px;
-  min-height: 92px;
+  width: 120px;
+  min-height: 76px;
   transform: translate(-50%, -50%);
   display: grid;
   gap: 4px;
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 10px 12px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(118, 109, 96, 0.16);
   box-shadow: 0 10px 24px rgba(68, 57, 44, 0.08);
@@ -1258,6 +1258,16 @@ button.danger {
 .morning-seat span,
 .morning-seat small {
   color: var(--muted);
+}
+
+.morning-seat strong {
+  font-size: 0.92rem;
+}
+
+.morning-seat span,
+.morning-seat small {
+  font-size: 0.76rem;
+  line-height: 1.2;
 }
 
 .morning-answer-board .panel-block {

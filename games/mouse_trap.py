@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -49,10 +50,10 @@ class MouseTrapState:
     walls: Set[str] = field(default_factory=set)
     humans: List[Cell] = field(default_factory=lambda: [(0, 0), (4, 4)])
     mouse: Cell = (2, 2)
-    phase: str = "build"
+    phase: str = "setup"
     wall_turn_index: int = 0
     chase_turn: int = 1
-    active_side: str = "H"
+    active_side: str = "human"
     mouse_steps_taken: int = 0
     game_over: bool = False
     winner: Optional[str] = None
@@ -70,15 +71,17 @@ class MouseTrapGame:
     min_players = 2
     max_players = 2
     player_label = "2人用"
-    seat_order = ["H", "M"]
-    host_control_actions: set[str] = set()
+    seat_order = ["A", "B"]
+    host_control_actions: set[str] = {"set_start_player"}
 
     def __init__(self) -> None:
         self.players: Dict[str, MouseTrapPlayer] = {
-            "H": MouseTrapPlayer("H", "人間"),
-            "M": MouseTrapPlayer("M", "ネズミ"),
+            "A": MouseTrapPlayer("A", "プレイヤーA"),
+            "B": MouseTrapPlayer("B", "プレイヤーB"),
         }
         self.state = MouseTrapState()
+        self.human_symbol = "A"
+        self.mouse_symbol = "B"
 
     @classmethod
     def catalog_entry(cls) -> dict:
@@ -95,8 +98,31 @@ class MouseTrapGame:
 
     def set_player_name(self, symbol: str, name: str) -> None:
         cleaned = name.strip()
-        default_name = "人間" if symbol == "H" else "ネズミ"
+        default_name = "プレイヤーA" if symbol == "A" else "プレイヤーB"
         self.players[symbol].name = cleaned[:24] if cleaned else default_name
+
+    def apply_host_action(self, action: str, start_choice: Optional[str] = None, **_: object) -> None:
+        if action != "set_start_player":
+            raise GameError("不明な管理操作です。")
+        self.set_start_player(start_choice or "")
+
+    def set_start_player(self, start_choice: str) -> None:
+        if self.joined_count() < 2:
+            raise GameError("2人そろってから役割を決めてください。")
+        if start_choice == "human":
+            self.human_symbol, self.mouse_symbol = "A", "B"
+        elif start_choice == "mouse":
+            self.human_symbol, self.mouse_symbol = "B", "A"
+        elif start_choice == "random":
+            if random.randint(0, 1) == 0:
+                self.human_symbol, self.mouse_symbol = "A", "B"
+            else:
+                self.human_symbol, self.mouse_symbol = "B", "A"
+        else:
+            raise GameError("役割の選択が正しくありません。")
+        self.state.phase = "build"
+        self.state.active_side = "human"
+        self.state.message = f"{self.players[self.human_symbol].name} が人間、{self.players[self.mouse_symbol].name} がネズミです。人間から壁を置き始めます。"
 
     def update_connection(self, symbol: str, connected: bool) -> None:
         if symbol in self.players:
@@ -109,10 +135,10 @@ class MouseTrapGame:
         for symbol, name in saved_names.items():
             self.players[symbol].name = name
             self.players[symbol].connected = saved_connections[symbol]
-        self.state.message = "再戦の準備ができました。人間から壁を置き始めます。"
+        self.state.message = "再戦の準備ができました。人間とネズミを決めてから始めてください。"
 
     def start_if_ready(self) -> None:
-        self.state.message = "人間から壁を置き始めます。"
+        self.state.message = "人間とネズミを決めてから始めてください。" if self.joined_count() >= 2 else "2人そろうまで待ってください。"
 
     def apply_player_action(
         self,
@@ -128,7 +154,9 @@ class MouseTrapGame:
         if action == "resign":
             self._resign(symbol)
             return
-        if symbol != self.state.active_side:
+        if not self.started():
+            raise GameError("まず人間とネズミを決めてから始めてください。")
+        if symbol != self.active_player_symbol():
             raise GameError("いまはあなたの番ではありません。")
 
         if self.state.phase == "build":
@@ -168,18 +196,18 @@ class MouseTrapGame:
             raise GameError("壁が4本以上連なる置き方はできません。")
 
         self.state.walls.add(edge_id)
-        actor_label = "人間" if symbol == "H" else "ネズミ"
+        actor_label = "人間" if symbol == self.human_symbol else "ネズミ"
         self.state.build_log.append(f"{len(self.state.walls)}本目: {actor_label} が壁 {edge_id} を配置")
         self.state.wall_turn_index += 1
 
         if len(self.state.walls) >= MAX_WALLS:
             self.state.phase = "chase"
-            self.state.active_side = "H"
+            self.state.active_side = "human"
             self.state.message = "迷宮が完成しました。人間の番です。10ターン以内に捕まえてください。"
             return
 
-        self.state.active_side = "M" if self.state.active_side == "H" else "H"
-        next_label = "人間" if self.state.active_side == "H" else "ネズミ"
+        self.state.active_side = "mouse" if self.state.active_side == "human" else "human"
+        next_label = "人間" if self.state.active_side == "human" else "ネズミ"
         self.state.message = f"{actor_label} が壁を置きました。次は {next_label} の番です。"
 
     def _move_human(self, destination: Cell, piece: str) -> None:
@@ -204,7 +232,7 @@ class MouseTrapGame:
             self._finish("H", "ネズミを動けなくしました。人間の勝ちです。")
             return
 
-        self.state.active_side = "M"
+        self.state.active_side = "mouse"
         self.state.mouse_steps_taken = 0
         self.state.message = "ネズミの番です。2マス動いてください。"
 
@@ -233,17 +261,30 @@ class MouseTrapGame:
             return
 
         self.state.chase_turn += 1
-        self.state.active_side = "H"
+        self.state.active_side = "human"
         self.state.mouse_steps_taken = 0
         self.state.message = f"{self.state.chase_turn}ターン目。人間の番です。"
 
     def _resign(self, symbol: str) -> None:
         if symbol not in self.players:
             raise GameError("プレイヤーが見つかりません。")
-        winner = "M" if symbol == "H" else "H"
-        loser_label = "人間" if symbol == "H" else "ネズミ"
-        winner_label = "ネズミ" if winner == "M" else "人間"
+        winner = self.mouse_symbol if symbol == self.human_symbol else self.human_symbol
+        loser_label = "人間" if symbol == self.human_symbol else "ネズミ"
+        winner_label = "ネズミ" if winner == self.mouse_symbol else "人間"
         self._finish(winner, f"{loser_label} 側が降参しました。{winner_label} の勝ちです。")
+
+    def started(self) -> bool:
+        return self.state.phase != "setup"
+
+    def active_player_symbol(self) -> str:
+        return self.human_symbol if self.state.active_side == "human" else self.mouse_symbol
+
+    def joined_count(self) -> int:
+        defaults = {"A": "プレイヤーA", "B": "プレイヤーB"}
+        return sum(
+            1 for symbol, player in self.players.items()
+            if player.connected or player.name != defaults[symbol]
+        )
 
     def mouse_has_any_one_step_route(self) -> bool:
         for neighbor in self._neighbors(self.state.mouse):
@@ -383,11 +424,17 @@ class MouseTrapGame:
             "game_type": self.game_type,
             "title": self.title,
             "phase": self.state.phase,
-            "started": True,
+            "started": self.started(),
             "game_over": self.state.game_over,
             "winner_text": self.state.winner_text,
             "message": self.state.message,
             "active_side": self.state.active_side,
+            "active_player_symbol": self.active_player_symbol() if self.started() else "",
+            "human_symbol": self.human_symbol,
+            "mouse_symbol": self.mouse_symbol,
+            "viewer_role": (
+                "human" if viewer_symbol == self.human_symbol else "mouse" if viewer_symbol == self.mouse_symbol else ""
+            ),
             "wall_count": len(self.state.walls),
             "max_walls": MAX_WALLS,
             "chase_turn": self.state.chase_turn,

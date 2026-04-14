@@ -137,6 +137,10 @@
               <span>コース長</span>
               <strong id="auctionTrackLabel">-</strong>
             </div>
+            <div class="stat-chip">
+              <span>セリ目安</span>
+              <strong id="auctionBidTimerLabel">-</strong>
+            </div>
           </div>
 
           <div id="goalRewardBanner" class="goal-reward-banner"></div>
@@ -289,7 +293,7 @@
             <p id="replaySummaryLabel" class="microcopy">ここで各ターンの動きとセリ結果を確認できます。</p>
           </div>
 
-          <div id="auctionPlayersPanelBlock" class="panel-block hidden">
+          <div id="auctionPlayersPanelBlock" class="panel-block">
             <p class="eyebrow">プレイヤー一覧</p>
             <div id="auctionPlayersPanel" class="players-panel"></div>
           </div>
@@ -321,6 +325,16 @@
         </div>
 
         <aside class="side-panel">
+          <div id="mouseStartPanel" class="panel-block hidden">
+            <p class="eyebrow">開始前</p>
+            <div class="action-grid">
+              <button id="mouseStartHumanButton" class="primary">部屋主が人間</button>
+              <button id="mouseStartMouseButton">部屋主がネズミ</button>
+              <button id="mouseStartRandomButton">ランダム</button>
+            </div>
+            <p class="microcopy">部屋を作った人が、自分を人間にするかネズミにするか決めてから始めます。</p>
+          </div>
+
           <div id="mouseRematchPanel" class="panel-block hidden">
             <p class="eyebrow">もう一度やる</p>
             <button id="mouseRematchButton" class="primary">同じ部屋で再戦</button>

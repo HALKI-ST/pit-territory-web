@@ -52,6 +52,7 @@ class MorningAnswerGame:
     max_players = len(SEAT_ORDER)
     player_label = "2人～"
     seat_order = list(SEAT_ORDER)
+    allow_midgame_join = True
     host_control_actions = {"start_match", "toggle_pause", "next_round"}
 
     def __init__(self) -> None:
@@ -88,6 +89,8 @@ class MorningAnswerGame:
     def set_player_name(self, symbol: str, name: str) -> None:
         cleaned = name.strip() or symbol
         self.players[symbol] = MorningAnswerPlayer(symbol=symbol, name=cleaned[:24])
+        if self.started and symbol not in self.submissions:
+            self.submissions[symbol] = {"text": "", "opened": False, "is_winner": False}
         self._refresh_waiting_message()
 
     def update_connection(self, symbol: str, connected: bool) -> None:

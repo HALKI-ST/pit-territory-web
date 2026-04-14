@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -16,8 +17,8 @@ DEFAULT_TRACK_LENGTH = 30
 DEFAULT_TAPE_BONUS = 15_000
 DEFAULT_QUICK_BIDS = [0, 1_000, 2_000, 5_000, 8_000, 10_000]
 DEFAULT_GOAL_REWARDS = [50_000, 20_000, 10_000, 5_000, 2_000, 1_000]
-DEFAULT_PLUS_COUNT = 14
-DEFAULT_MINUS_COUNT = 9
+DEFAULT_PLUS_COUNT = 13
+DEFAULT_MINUS_COUNT = 8
 DEFAULT_FORWARD_COUNT = 2
 DEFAULT_BACKWARD_COUNT = 2
 DEFAULT_FORWARD_STEPS = 3
@@ -107,6 +108,7 @@ class AuctionRaceGame:
         self.tape_bonus_position: Optional[int] = None
         self.tape_bonus_value = DEFAULT_TAPE_BONUS
         self.tape_bonus_claimed_by: Optional[str] = None
+        self.bid_timer_deadline: Optional[float] = None
         self.finished_order: List[str] = []
         self.activity_log: List[str] = []
         self.round_history: List[dict] = []
@@ -799,3 +801,183 @@ class AuctionRaceGame:
             "round_history": self.round_history,
             "players": {symbol: self.players[symbol].to_public_dict(viewer, reveal_all) for symbol in ordered_symbols},
         }
+
+
+_original_auction_start_match = AuctionRaceGame.start_match
+_original_auction_resolve_round = AuctionRaceGame._resolve_round
+_original_auction_finish_game = AuctionRaceGame._finish_game
+_original_auction_to_public_dict = AuctionRaceGame.to_public_dict
+
+
+def _patched_build_board_tiles(
+    self: AuctionRaceGame,
+    track_length: int,
+    layout_text: str,
+    plus_count: int,
+    minus_count: int,
+    forward_count: int,
+    backward_count: int,
+    net_tile_total: int,
+    money_tile_min: int,
+    money_tile_max: int,
+    tape_position: Optional[int] = None,
+    shuffle_events: bool = True,
+    randomize_values: bool = True,
+) -> List[dict]:
+    tiles = [{"kind": "start", "value": 0, "label": "スタート"}]
+    middle_count = track_length - 1
+    special_slots = 1 if tape_position is not None and 0 < tape_position < track_length else 0
+    custom_tiles = self._parse_tile_layout(layout_text)
+
+    if custom_tiles:
+        custom_tiles = custom_tiles[: max(0, middle_count - special_slots)]
+        custom_index = 0
+        for index in range(1, track_length):
+            if tape_position is not None and index == tape_position:
+                tiles.append({"kind": "tape", "value": 0, "label": "先着テープ"})
+            elif custom_index < len(custom_tiles):
+                tiles.append(custom_tiles[custom_index])
+                custom_index += 1
+            else:
+                tiles.append({"kind": "blank", "value": 0, "label": "空き"})
+    else:
+        configured_tiles = plus_count + minus_count + forward_count + backward_count
+        blanks = max(0, middle_count - configured_tiles - special_slots)
+        plus_values, minus_values = self._build_money_values(
+            plus_count,
+            minus_count,
+            net_tile_total,
+            money_tile_min,
+            money_tile_max,
+            randomize=randomize_values,
+        )
+        events: List[dict] = []
+        for value in plus_values:
+            events.append({"kind": "plus", "value": value, "label": f"+{value:,}円"})
+        for value in minus_values:
+            events.append({"kind": "minus", "value": -value, "label": f"-{value:,}円"})
+        for _ in range(forward_count):
+            events.append({"kind": "forward", "value": self.forward_steps, "label": f"+{self.forward_steps}マス"})
+        for _ in range(backward_count):
+            events.append({"kind": "backward", "value": -self.backward_steps, "label": f"-{self.backward_steps}マス"})
+        for _ in range(blanks):
+            events.append({"kind": "blank", "value": 0, "label": "空き"})
+        if shuffle_events:
+            random.shuffle(events)
+
+        event_index = 0
+        for index in range(1, track_length):
+            if tape_position is not None and index == tape_position:
+                tiles.append({"kind": "tape", "value": 0, "label": "先着テープ"})
+            else:
+                tiles.append(events[event_index] if event_index < len(events) else {"kind": "blank", "value": 0, "label": "空き"})
+                event_index += 1
+
+    tiles.append({"kind": "goal", "value": 0, "label": "ゴール"})
+    return tiles
+
+
+def _patched_advance_player(self: AuctionRaceGame, player: AuctionPlayerState, steps: int) -> List[str]:
+    events: List[str] = []
+    if steps <= 0:
+        events.append(f"{player.name} は同額トップでしたが 0 マス移動でした。")
+        return events
+
+    start_pos = player.position
+    end_pos = min(self.track_length, player.position + steps)
+    player.position = end_pos
+
+    if self.tape_bonus_position is not None and self.tape_bonus_claimed_by is None and start_pos < self.tape_bonus_position <= end_pos:
+        self.tape_bonus_claimed_by = player.symbol
+        player.balance += self.tape_bonus_value
+        player.last_delta += self.tape_bonus_value
+        events.append(f"{player.name} が先着テープを最初に切り、{self.tape_bonus_value:,}円を獲得しました。")
+
+    if end_pos >= self.track_length:
+        events.extend(self._finish_player(player))
+        return events
+
+    tile = self.board_tiles[end_pos]
+    if tile["kind"] == "tape":
+        events.append(f"{player.name} は先着テープのマスに止まりました。")
+    elif tile["kind"] in {"plus", "minus"}:
+        player.balance += tile["value"]
+        player.last_delta += tile["value"]
+        if tile["value"] >= 0:
+            events.append(f"{player.name} は青マスで {tile['value']:,}円を受け取りました。")
+        else:
+            events.append(f"{player.name} は赤マスで {abs(tile['value']):,}円を支払いました。")
+    elif tile["kind"] == "forward":
+        player.position = min(self.track_length, player.position + tile["value"])
+        events.append(f"{player.name} は進むマスでさらに {tile['value']} マス進みました。")
+    elif tile["kind"] == "backward":
+        player.position = max(0, player.position + tile["value"])
+        events.append(f"{player.name} は戻るマスで {abs(tile['value'])} マス戻りました。")
+    else:
+        events.append(f"{player.name} は空きマスに止まりました。")
+
+    if player.position >= self.track_length:
+        events.extend(self._finish_player(player))
+        return events
+    if player.balance < 0:
+        player.status = "bankrupt"
+        events.append(f"{player.name} はマス効果で残高がマイナスになり、破産負けになりました。")
+    return events
+
+
+def _patched_start_match(self: AuctionRaceGame) -> None:
+    _original_auction_start_match(self)
+    self.board_tiles = self._build_board_tiles(
+        self.track_length,
+        self.tile_layout_text,
+        self.plus_count,
+        self.minus_count,
+        self.forward_count,
+        self.backward_count,
+        self.net_tile_total,
+        self.money_tile_min,
+        self.money_tile_max,
+        self.tape_bonus_position,
+    )
+    self.bid_timer_deadline = time.time() + 60
+
+
+def _patched_resolve_round(self: AuctionRaceGame) -> None:
+    _original_auction_resolve_round(self)
+    if self.started and not self.game_over:
+        self.bid_timer_deadline = time.time() + 60
+
+
+def _patched_finish_game(self: AuctionRaceGame) -> None:
+    _original_auction_finish_game(self)
+    self.bid_timer_deadline = None
+
+
+def _patched_to_public_dict(self: AuctionRaceGame, viewer_symbol: Optional[str] = None) -> dict:
+    data = _original_auction_to_public_dict(self, viewer_symbol)
+    data["bid_timer_deadline"] = self.bid_timer_deadline
+    preview_track_length = self.track_length or self.track_length_setting
+    preview_tape_position = self.tape_bonus_position if self.tape_bonus_position is not None else max(2, preview_track_length // 2)
+    data["board_tiles"] = self.board_tiles or self._build_board_tiles(
+        preview_track_length,
+        self.tile_layout_text,
+        self.plus_count,
+        self.minus_count,
+        self.forward_count,
+        self.backward_count,
+        self.net_tile_total,
+        self.money_tile_min,
+        self.money_tile_max,
+        preview_tape_position,
+        shuffle_events=False,
+        randomize_values=False,
+    )
+    return data
+
+
+AuctionRaceGame._build_board_tiles = _patched_build_board_tiles
+AuctionRaceGame._advance_player = _patched_advance_player
+AuctionRaceGame.start_match = _patched_start_match
+AuctionRaceGame._resolve_round = _patched_resolve_round
+AuctionRaceGame._finish_game = _patched_finish_game
+AuctionRaceGame.to_public_dict = _patched_to_public_dict

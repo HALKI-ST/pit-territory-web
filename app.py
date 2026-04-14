@@ -52,6 +52,17 @@ def game_host_actions(game: Any) -> set[str]:
     return set(getattr(game, "host_control_actions", set()))
 
 
+def game_started(game: Any) -> bool:
+    started = getattr(game, "started", False)
+    if callable(started):
+        return bool(started())
+    return bool(started)
+
+
+def game_allows_midgame_join(game: Any) -> bool:
+    return bool(getattr(game, "allow_midgame_join", False))
+
+
 def game_to_public_dict(game: Any, viewer_symbol: str) -> dict:
     try:
         return game.to_public_dict(viewer_symbol=viewer_symbol)
@@ -206,7 +217,7 @@ async def create_room(payload: CreateRoomRequest) -> dict:
 async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
     room = get_room_or_404(room_code)
 
-    if getattr(room.game, "started", False):
+    if game_started(room.game) and not game_allows_midgame_join(room.game):
         raise HTTPException(status_code=400, detail="ゲーム開始後は途中参加できません。")
 
     if room.player_count() >= game_max_players(room.game):

@@ -50,6 +50,7 @@ const auctionReplayPanelEl = document.getElementById("auctionReplayPanel");
 const auctionRoundLabelEl = document.getElementById("auctionRoundLabel");
 const auctionRollLabelEl = document.getElementById("auctionRollLabel");
 const auctionTrackLabelEl = document.getElementById("auctionTrackLabel");
+const auctionBidTimerLabelEl = document.getElementById("auctionBidTimerLabel");
 const bankBalanceLabelEl = document.getElementById("bankBalanceLabel");
 const bidUnitsInputEl = document.getElementById("bidUnitsInput");
 const goalRewardBannerEl = document.getElementById("goalRewardBanner");
@@ -1369,12 +1370,191 @@ function renderMouseBoard(game) {
   }
 }
 
+function handleMouseWallClick(game, edgeId) {
+  if (game.phase !== "build" || game.game_over || state.playerSymbol !== game.active_player_symbol) {
+    return;
+  }
+  sendAction({ action: "place_wall", edge_id: edgeId });
+}
+
 function handleMouseCellClick(game, cell) {
   if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_side) {
     return;
   }
 
   if (game.active_side === "H") {
+    const humans = mouseHumansAtCell(game, cell);
+    if (humans.length > 0) {
+      mouseSelection.humanPiece = humans[0];
+      render();
+      return;
+    }
+    if (!mouseSelection.humanPiece) {
+      messageLabelEl.textContent = "先に H1 か H2 を選んでください。";
+      return;
+    }
+    sendAction({ action: "move_human", cell, piece: mouseSelection.humanPiece });
+    mouseSelection.humanPiece = null;
+    return;
+  }
+
+  sendAction({ action: "move_mouse", cell });
+}
+
+function renderMouseBoard(game) {
+  mouseBoardEl.innerHTML = "";
+  mouseBoardEl.style.gridTemplateColumns = "";
+
+  const humanCells = new Map();
+  game.humans.forEach((cell, index) => {
+    const key = mouseCellKey(cell);
+    if (!humanCells.has(key)) humanCells.set(key, []);
+    humanCells.get(key).push(index === 0 ? "H1" : "H2");
+  });
+  const wallSet = new Set(game.walls || []);
+  const selectedOrigin = mouseSelection.humanPiece === "H1"
+    ? game.humans[0]
+    : mouseSelection.humanPiece === "H2"
+      ? game.humans[1]
+      : null;
+  const validHumanMoves = new Set(
+    selectedOrigin
+      ? mouseNeighbors(game, selectedOrigin)
+        .filter((cell) => !mouseHumansAtCell(game, cell).length || (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]))
+        .map((cell) => mouseCellKey(cell))
+      : [],
+  );
+  const validMouseMoves = new Set(
+    mouseNeighbors(game, game.mouse)
+      .filter((cell) => mouseHumansAtCell(game, cell).length === 0)
+      .map((cell) => mouseCellKey(cell)),
+  );
+  const isHumanTurn = game.phase === "chase" && game.active_side === "human" && state.playerSymbol === game.active_player_symbol && !game.game_over;
+  const isMouseTurn = game.phase === "chase" && game.active_side === "mouse" && state.playerSymbol === game.active_player_symbol && !game.game_over;
+  const isBuildTurn = game.phase === "build" && state.playerSymbol === game.active_player_symbol && !game.game_over;
+
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      const isCell = row % 2 === 0 && col % 2 === 0;
+      const isVertical = row % 2 === 0 && col % 2 === 1;
+      const isHorizontal = row % 2 === 1 && col % 2 === 0;
+      const node = document.createElement("button");
+      node.type = "button";
+
+      if (isCell) {
+        const cell = [row / 2, col / 2];
+        const key = mouseCellKey(cell);
+        node.className = "mouse-cell";
+        const humans = humanCells.get(key) || [];
+
+        if (isHumanTurn && validHumanMoves.has(key)) node.classList.add("human-move-target");
+        if (isMouseTurn && validMouseMoves.has(key)) node.classList.add("mouse-move-target");
+        if (humans.length > 0 && isHumanTurn) node.classList.add("occupied-human-cell");
+
+        if (humans.length > 0) {
+          const wrap = document.createElement("div");
+          wrap.className = "mouse-piece-wrap";
+          for (const human of humans) {
+            const piece = document.createElement("div");
+            piece.className = `mouse-piece human-piece ${mouseSelection.humanPiece === human ? "selected" : ""}`;
+            piece.textContent = human;
+            piece.addEventListener("click", (event) => {
+              event.stopPropagation();
+              if (isHumanTurn) {
+                mouseSelection.humanPiece = human;
+                render();
+              }
+            });
+            wrap.appendChild(piece);
+          }
+          node.appendChild(wrap);
+        }
+
+        if (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]) {
+          const mousePiece = document.createElement("div");
+          mousePiece.className = "mouse-piece mouse-token";
+          mousePiece.textContent = "M";
+          node.appendChild(mousePiece);
+        }
+
+        const label = document.createElement("span");
+        label.className = "mouse-cell-label";
+        label.textContent = `${cell[0] + 1},${cell[1] + 1}`;
+        node.appendChild(label);
+        node.addEventListener("click", () => handleMouseCellClick(game, cell));
+      } else if (isVertical) {
+        const edgeId = `v:${row / 2}:${(col - 1) / 2}`;
+        node.className = `mouse-edge vertical ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else if (isHorizontal) {
+        const edgeId = `h:${(row - 1) / 2}:${col / 2}`;
+        node.className = `mouse-edge horizontal ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
+        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
+      } else {
+        node.className = "mouse-joint";
+        node.disabled = true;
+      }
+      mouseBoardEl.appendChild(node);
+    }
+  }
+}
+
+function mouseGuideText(game) {
+  if (game.game_over) {
+    return "対戦終了です。ログを見ながら感想戦できます。";
+  }
+  if (!game.started) {
+    return isHost(game)
+      ? "部屋主が人間かネズミかを決めてから開始してください。"
+      : "部屋主が人間かネズミかを決めるまで待ってください。";
+  }
+  if (game.phase === "build") {
+    return state.playerSymbol === game.active_player_symbol
+      ? `${game.active_side === "human" ? "人間" : "ネズミ"}側です。明るい線を押して壁を1本置いてください。`
+      : `${game.active_side === "human" ? "人間" : "ネズミ"}側が壁を置いています。`;
+  }
+  if (state.playerSymbol !== game.active_player_symbol) {
+    return `いまは${game.active_side === "human" ? "人間" : "ネズミ"}側の番です。`;
+  }
+  if (game.active_side === "human") {
+    return "H1 か H2 を選んでから、隣のマスを押してください。";
+  }
+  return game.mouse_steps_taken === 0
+    ? "ネズミの1歩目です。隣のマスを押してください。"
+    : "ネズミの2歩目です。続けて隣のマスを押してください。";
+}
+
+function renderMouseTrap(game) {
+  if (game.phase !== "chase" || game.active_side !== "human") {
+    mouseSelection.humanPiece = null;
+  }
+  document.getElementById("mouseStartPanel").classList.toggle("hidden", game.started);
+  mouseRematchPanelEl.classList.toggle("hidden", !game.game_over);
+  document.getElementById("mouseResetSelectionButton").disabled = game.game_over;
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : !game.started
+      ? "開始前"
+      : game.phase === "build"
+        ? `${game.active_side === "human" ? "壁作成: 人間" : "壁作成: ネズミ"}`
+        : `${game.chase_turn}ターン目 / ${game.active_side === "human" ? "人間" : "ネズミ"} の番`;
+
+  mousePhaseLabelEl.textContent = !game.started ? "開始前" : game.phase === "build" ? "壁作成" : "追跡";
+  mouseWallLabelEl.textContent = `${game.wall_count}/${game.max_walls}`;
+  mouseTurnLabelEl.textContent = game.phase === "build" ? "-" : `${game.chase_turn}/${game.max_chase_turns}`;
+  mouseGuideLabelEl.textContent = mouseGuideText(game);
+
+  renderMouseBoard(game);
+  renderSimpleLog(mouseBuildLogEl, game.build_log || []);
+  renderSimpleLog(mouseChaseLogEl, game.chase_log || []);
+}
+
+function handleMouseCellClick(game, cell) {
+  if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_player_symbol) {
+    return;
+  }
+
+  if (game.active_side === "human") {
     const humans = mouseHumansAtCell(game, cell);
     if (humans.length > 0) {
       mouseSelection.humanPiece = humans[0];
@@ -1429,7 +1609,7 @@ function renderWordSpy(game) {
   const myTeam = state.playerSymbol?.startsWith("R") ? "red" : "blue";
   const myTeamInfo = game.teams?.[myTeam];
 
-  wordSpyStartPanelEl.classList.toggle("hidden", game.started || game.game_over || !host);
+  wordSpyStartPanelEl.classList.toggle("hidden", (game.started && !game.game_over) || !host);
   wordSpyRematchPanelEl.classList.toggle("hidden", !game.game_over);
 
   turnLabelEl.textContent = game.game_over
@@ -1600,6 +1780,171 @@ function renderMorningWinnerPicker(game) {
   }
 }
 
+function renderAuctionRace(game, myPlayer) {
+  const host = isHost(game);
+  const inProgress = game.started && !game.game_over;
+  const remaining = game.bid_timer_deadline ? Math.max(0, Math.floor(game.bid_timer_deadline - Date.now() / 1000)) : 0;
+
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : game.awaiting_judge
+      ? "全員入札済み / ジャッジ待ち"
+      : game.started
+        ? `ラウンド ${game.round_number} / 出目 ${game.current_roll}`
+        : `開始待ち (${game.players_joined}/${game.max_players} 人参加中)`;
+
+  auctionRoundLabelEl.textContent = game.round_number || "-";
+  auctionRollLabelEl.textContent = game.current_roll || "-";
+  auctionTrackLabelEl.textContent = game.track_length || game.settings.track_length || "-";
+  auctionBidTimerLabelEl.textContent = inProgress && !game.awaiting_judge ? `${remaining}秒` : "-";
+  bankBalanceLabelEl.textContent = myPlayer && myPlayer.balance_visible ? yen(myPlayer.balance) : "非公開";
+
+  auctionStartPanelEl.classList.toggle("hidden", inProgress || game.game_over);
+  auctionRematchPanelEl.classList.toggle("hidden", !game.game_over);
+  auctionResultsPanelEl.classList.toggle("hidden", !game.game_over || game.results_revealed);
+  auctionReplayPanelEl.classList.toggle("hidden", !game.results_revealed);
+  auctionPlayersPanelBlockEl.classList.toggle("hidden", false);
+  auctionSettingsPanelEl.classList.toggle("hidden", !state.auctionSettingsOpen || inProgress || game.game_over);
+  auctionStartNoteEl.textContent = host
+    ? `現在 ${game.players_joined} 人参加中です。必要なら開始前に設定を変更できます。`
+    : "部屋を作った人が開始または設定変更するまで待ってください。";
+
+  if (!game.results_revealed) {
+    state.replayTurn = 0;
+  } else {
+    state.replayTurn = Math.max(0, Math.min(state.replayTurn, (game.round_history || []).length));
+  }
+
+  syncAuctionSettingsForm(game);
+  renderQuickBidButtons(game, myPlayer);
+  renderAuctionPlayers(game);
+  renderGoalRewards(game);
+  renderReplayPanel(game);
+  renderAuctionBoard(game);
+  renderAuctionLogs(game);
+}
+
+function renderAuctionPlayers(game) {
+  auctionPlayersPanelEl.innerHTML = "";
+  for (const symbol of Object.keys(game.players)) {
+    const player = game.players[symbol];
+    const card = document.createElement("div");
+    card.className = `player-card seat-${symbol.toLowerCase()}`;
+    const labels = [];
+    if (symbol === state.playerSymbol) labels.push("あなた");
+    if (symbol === game.host_symbol) labels.push("部屋主");
+    if (player.locked_bid && !game.game_over) labels.push("入札済み");
+    if (player.placement) labels.push(`${player.placement}位`);
+
+    const balanceText = player.balance_visible ? yen(player.balance) : "非公開";
+    const deltaValue = player.last_delta == null ? null : player.last_delta;
+    const deltaText = deltaValue == null ? "-" : `${deltaValue >= 0 ? "+" : ""}${yen(deltaValue)}`;
+
+    card.innerHTML = `
+      <strong>${player.name} (${symbol})${labels.length ? ` / ${labels.join(" / ")}` : ""}</strong>
+      <div>コマ記号: ${symbol}</div>
+      <div>状態: ${statusLabel(player.status)}</div>
+      <div>位置: ${player.position} / ${game.track_length || "-"}</div>
+      <div>残高: ${balanceText}</div>
+      <div>前回の増減: ${deltaText}</div>
+      <div>接続: ${player.connected ? "接続中" : "オフライン"}</div>
+    `;
+    auctionPlayersPanelEl.appendChild(card);
+  }
+}
+
+function renderGoalRewards(game) {
+  const rewards = (game.goal_rewards || [])
+    .map((item) => `${item.place}位 ${yen(item.reward)}`)
+    .join(" / ");
+  const nonGoalText = `${Math.max(2, Object.keys(game.players).length)}人戦では最下位にゴールボーナスなし`;
+  const blankText = `空きマス ${game.settings.blank_count}`;
+  const rangeText = `金額マス ${yen(game.settings.money_tile_min)}-${yen(game.settings.money_tile_max)} ランダム`;
+  const tapeText = game.tape_bonus_position != null
+    ? `先着テープ ${game.tape_bonus_position} マス目で ${yen(game.tape_bonus_value)}`
+    : `先着テープ ${yen(game.tape_bonus_value)}`;
+  const legendText = Object.entries(game.players || {})
+    .map(([symbol, player]) => `${symbol}=${player.name}`)
+    .join(" / ");
+  goalRewardBannerEl.textContent = `${tapeText} / ゴール報酬: ${rewards} / ${rangeText} / ${nonGoalText} / ${blankText} / ${legendText}`;
+}
+
+function tileMarkup(tile, index, game) {
+  if (index === 0) {
+    return `<span class="tile-main">スタート</span>`;
+  }
+  if (index === game.track_length) {
+    const rewards = (game.goal_rewards || []).slice(0, 3).map((item) => `${item.place}位 ${yen(item.reward)}`).join("<br>");
+    return `<span class="tile-main">ゴール</span><span class="tile-sub">${rewards}</span>`;
+  }
+  if (tile.kind === "tape") {
+    return `<span class="tile-main">先着テープ</span><span class="tile-sub">先着1名 ${yen(game.tape_bonus_value)}</span>`;
+  }
+  if (tile.kind === "plus") return `<span class="tile-main">青マス</span><span class="tile-sub">+${yen(tile.value)}</span>`;
+  if (tile.kind === "minus") return `<span class="tile-main">赤マス</span><span class="tile-sub">-${yen(Math.abs(tile.value))}</span>`;
+  if (tile.kind === "forward") return `<span class="tile-main">進むマス</span><span class="tile-sub">+${tile.value}マス</span>`;
+  if (tile.kind === "backward") return `<span class="tile-main">戻るマス</span><span class="tile-sub">-${Math.abs(tile.value)}マス</span>`;
+  return `<span class="tile-main">空きマス</span><span class="tile-sub">変化なし</span>`;
+}
+
+function renderAuctionBoard(game) {
+  auctionBoardEl.innerHTML = "";
+  const replayPositions = getReplayPositions(game);
+  const replayTapeClaimedBy = getReplayTapeClaimedBy(game);
+  const layout = buildSnakeLayout(game.track_length, game.track_columns || 6);
+  auctionBoardEl.style.setProperty("--snake-cols", layout.cols);
+  auctionBoardEl.style.setProperty("--snake-rows", layout.rows);
+
+  const piecesByPosition = new Map();
+  for (const symbol of Object.keys(game.players)) {
+    const pos = replayPositions[symbol] ?? game.players[symbol].position;
+    if (!piecesByPosition.has(pos)) piecesByPosition.set(pos, []);
+    piecesByPosition.get(pos).push(symbol);
+  }
+
+  const tileElements = [];
+  for (let index = 0; index <= game.track_length; index += 1) {
+    const tile = game.board_tiles[index] || { kind: "blank", value: 0, label: "空き" };
+    const snakePos = layout.positions[index];
+    const tileEl = document.createElement("div");
+    tileEl.className = `track-tile kind-${tile.kind}`;
+    tileEl.style.gridColumn = String(snakePos.col + 1);
+    tileEl.style.gridRow = String(snakePos.row + 1);
+
+    if (tile.kind === "tape") {
+      tileEl.classList.add("tape-tile");
+      if (replayTapeClaimedBy) tileEl.classList.add("tape-claimed");
+    }
+    if (tile.kind === "plus") tileEl.classList.add("kind-plus");
+    else if (tile.kind === "minus") tileEl.classList.add("kind-minus");
+    else if (tile.kind === "forward") tileEl.classList.add("kind-forward", "tile-forward");
+    else if (tile.kind === "backward") tileEl.classList.add("kind-backward", "tile-backward");
+
+    const badge = document.createElement("span");
+    badge.className = "tile-index";
+    badge.textContent = index;
+    tileEl.appendChild(badge);
+
+    const label = document.createElement("div");
+    label.className = "tile-label";
+    label.innerHTML = tileMarkup(tile, index, game);
+    tileEl.appendChild(label);
+
+    const pieces = document.createElement("div");
+    pieces.className = "tile-pieces";
+    for (const symbol of piecesByPosition.get(index) || []) {
+      const piece = document.createElement("div");
+      piece.className = `track-piece seat-${symbol.toLowerCase()} ${symbol === state.playerSymbol ? "is-you" : ""}`;
+      piece.textContent = symbol;
+      pieces.appendChild(piece);
+    }
+    tileEl.appendChild(pieces);
+    auctionBoardEl.appendChild(tileEl);
+    tileElements.push(tileEl);
+  }
+  requestAnimationFrame(() => renderSnakeLines(tileElements));
+}
+
 function wordSpyTeamLabel(team) {
   return team === "red" ? "赤チーム" : team === "blue" ? "青チーム" : "未設定";
 }
@@ -1729,15 +2074,21 @@ function renderWordSpyAssignments(game, host) {
     name.innerHTML = `<strong>${player.name}</strong><span>${symbol}</span>`;
     row.appendChild(name);
 
-    if (!game.started && host) {
+    const canEditAssignment = host && (!game.started || game.game_over || assignment.role === "spy");
+    if (canEditAssignment) {
       const select = document.createElement("select");
       select.className = "wordspy-assignment-select";
-      const options = [
-        ["red:master", "赤マスター"],
-        ["red:spy", "赤スパイ"],
-        ["blue:master", "青マスター"],
-        ["blue:spy", "青スパイ"],
-      ];
+      const options = game.started && !game.game_over
+        ? [
+            ["red:spy", "赤スパイ"],
+            ["blue:spy", "青スパイ"],
+          ]
+        : [
+            ["red:master", "赤マスター"],
+            ["red:spy", "赤スパイ"],
+            ["blue:master", "青マスター"],
+            ["blue:spy", "青スパイ"],
+          ];
       for (const [value, label] of options) {
         const option = document.createElement("option");
         option.value = value;
@@ -1839,6 +2190,9 @@ document.getElementById("resignButton").addEventListener("click", () => sendActi
 document.getElementById("mouseResetSelectionButton").addEventListener("click", () => {
   sendAction({ action: "resign" });
 });
+document.getElementById("mouseStartHumanButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "human" }));
+document.getElementById("mouseStartMouseButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "mouse" }));
+document.getElementById("mouseStartRandomButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "random" }));
 document.getElementById("mouseRematchButton").addEventListener("click", () => {
   sendAction({ action: "rematch" });
 });
@@ -1907,6 +2261,9 @@ window.addEventListener("resize", () => {
 
 window.setInterval(() => {
   if (state.gameState?.game_type === "morning_answer" && !state.gameState.paused && state.gameState.phase === "writing") {
+    render();
+  }
+  if (state.gameState?.game_type === "auction_race" && state.gameState.started && !state.gameState.game_over && !state.gameState.awaiting_judge) {
     render();
   }
 }, 1000);

@@ -249,6 +249,8 @@ def apply_player_action(room: Room, symbol: str, payload: dict) -> None:
             clue_text=payload.get("clue_text"),
             clue_count=payload.get("clue_count"),
             card_index=payload.get("card_index"),
+            answer_text=payload.get("answer_text"),
+            winner_symbols=payload.get("winner_symbols"),
         )
         return
 

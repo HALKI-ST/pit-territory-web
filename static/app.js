@@ -17,11 +17,13 @@ const auctionBoardEl = document.getElementById("auctionBoard");
 const auctionBoardLinesEl = document.getElementById("auctionBoardLines");
 const mouseBoardEl = document.getElementById("mouseBoard");
 const wordSpyBoardEl = document.getElementById("wordSpyBoard");
+const morningSeatRingEl = document.getElementById("morningSeatRing");
 const gameSectionEl = document.getElementById("gameSection");
 const pitGameViewEl = document.getElementById("pitGameView");
 const auctionGameViewEl = document.getElementById("auctionGameView");
 const mouseTrapViewEl = document.getElementById("mouseTrapView");
 const wordSpyViewEl = document.getElementById("wordSpyView");
+const morningAnswerViewEl = document.getElementById("morningAnswerView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -77,6 +79,15 @@ const wordSpyRoleBadgeEl = document.getElementById("wordSpyRoleBadge");
 const wordSpyAssignmentsPanelEl = document.getElementById("wordSpyAssignmentsPanel");
 const wordSpyClueFieldEl = document.getElementById("wordSpyClueField");
 const wordSpyCountFieldEl = document.getElementById("wordSpyCountField");
+const morningPhaseLabelEl = document.getElementById("morningPhaseLabel");
+const morningMasterLabelEl = document.getElementById("morningMasterLabel");
+const morningTimerLabelEl = document.getElementById("morningTimerLabel");
+const morningPromptLabelEl = document.getElementById("morningPromptLabel");
+const morningPromptSubLabelEl = document.getElementById("morningPromptSubLabel");
+const morningAnswersPanelEl = document.getElementById("morningAnswersPanel");
+const morningStartPanelEl = document.getElementById("morningStartPanel");
+const morningWinnerPickerEl = document.getElementById("morningWinnerPicker");
+const morningHistoryPanelEl = document.getElementById("morningHistoryPanel");
 
 const settingEls = {
   startingBalance: document.getElementById("settingStartingBalance"),
@@ -461,6 +472,7 @@ function render() {
   auctionGameViewEl.classList.toggle("hidden", game.game_type !== "auction_race");
   mouseTrapViewEl.classList.toggle("hidden", game.game_type !== "mouse_trap");
   wordSpyViewEl.classList.toggle("hidden", game.game_type !== "word_spy");
+  morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -470,6 +482,8 @@ function render() {
     renderMouseTrap(game);
   } else if (game.game_type === "word_spy") {
     renderWordSpy(game);
+  } else if (game.game_type === "morning_answer") {
+    renderMorningAnswer(game);
   }
 }
 
@@ -1490,6 +1504,102 @@ function renderWordSpyTeams(game) {
   }
 }
 
+function renderMorningAnswer(game) {
+  const host = isHost(game);
+  const isMaster = Boolean(game.viewer_is_master);
+  const inWriting = game.phase === "writing";
+  const inRevealing = game.phase === "revealing";
+  const inJudging = game.phase === "judging";
+  const canOpen = inRevealing && game.viewer_has_submitted && !game.viewer_has_opened;
+
+  morningStartPanelEl.classList.toggle("hidden", game.started);
+  morningPhaseLabelEl.textContent = ({
+    waiting: "開始前",
+    writing: game.paused ? "一時停止" : "回答中",
+    paused: "一時停止",
+    revealing: "オープン",
+    judging: "審査",
+    finished: "ラウンド終了",
+  }[game.phase] || game.phase || "-");
+  const master = game.players?.[game.master_symbol];
+  morningMasterLabelEl.textContent = master ? master.name : "-";
+  const remainingSeconds = game.phase === "writing" && game.round_deadline
+    ? Math.max(0, Math.floor(game.round_deadline - Date.now() / 1000))
+    : (game.remaining_seconds ?? 0);
+  morningTimerLabelEl.textContent = `${remainingSeconds}秒`;
+  morningPromptLabelEl.textContent = game.started
+    ? `「${game.prompt_initial}」で始まる「${game.prompt_theme}」`
+    : "ゲーム開始を待っています";
+  morningPromptSubLabelEl.textContent = isMaster
+    ? "あなたがこのラウンドのマスターです。"
+    : master
+      ? `${master.name} がこのラウンドのマスターです。`
+      : "-";
+
+  document.getElementById("morningAnswerInput").disabled = !inWriting || game.paused;
+  document.getElementById("morningSubmitButton").disabled = !inWriting || game.paused;
+  document.getElementById("morningOpenButton").disabled = !canOpen;
+  document.getElementById("morningPauseButton").disabled = !host || !(game.phase === "writing" || game.phase === "paused");
+  document.getElementById("morningPauseButton").textContent = game.paused ? "再開" : "一時停止";
+  document.getElementById("morningNextRoundButton").disabled = !host || game.phase !== "finished";
+  document.getElementById("morningJudgeButton").disabled = !isMaster || !inJudging;
+
+  renderMorningSeats(game);
+  renderMorningAnswers(game);
+  renderMorningWinnerPicker(game);
+  renderSimpleLog(morningHistoryPanelEl, game.history || []);
+}
+
+function renderMorningSeats(game) {
+  morningSeatRingEl.innerHTML = "";
+  const order = game.player_order || [];
+  const count = Math.max(order.length, 1);
+  order.forEach((symbol, index) => {
+    const player = game.players?.[symbol];
+    if (!player) return;
+    const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
+    const x = 50 + Math.cos(angle) * 38;
+    const y = 50 + Math.sin(angle) * 38;
+    const seat = document.createElement("div");
+    seat.className = `morning-seat ${player.is_master ? "master" : ""} ${player.has_crown ? "crown" : ""}`;
+    seat.style.left = `${x}%`;
+    seat.style.top = `${y}%`;
+    seat.innerHTML = `
+      <strong>${player.name}</strong>
+      <span>${player.score}点 ${player.has_crown ? "👑" : ""}</span>
+      <small>${player.submitted ? "回答済み" : "未回答"} / ${player.opened ? "公開済み" : "未公開"}</small>
+    `;
+    morningSeatRingEl.appendChild(seat);
+  });
+}
+
+function renderMorningAnswers(game) {
+  morningAnswersPanelEl.innerHTML = "";
+  for (const submission of game.submissions || []) {
+    const card = document.createElement("div");
+    card.className = `morning-answer-card ${submission.is_winner ? "winner" : ""}`;
+    card.innerHTML = `
+      <strong>${submission.name}</strong>
+      <div>${submission.opened ? submission.text : "まだ公開されていません"}</div>
+    `;
+    morningAnswersPanelEl.appendChild(card);
+  }
+}
+
+function renderMorningWinnerPicker(game) {
+  morningWinnerPickerEl.innerHTML = "";
+  for (const submission of game.submissions || []) {
+    if (!submission.opened) continue;
+    const label = document.createElement("label");
+    label.className = "morning-winner-option";
+    label.innerHTML = `
+      <input type="checkbox" value="${submission.symbol}" ${submission.is_winner ? "checked" : ""}>
+      <span>${submission.name}: ${submission.text}</span>
+    `;
+    morningWinnerPickerEl.appendChild(label);
+  }
+}
+
 function wordSpyTeamLabel(team) {
   return team === "red" ? "赤チーム" : team === "blue" ? "青チーム" : "未設定";
 }
@@ -1743,6 +1853,23 @@ document.getElementById("wordSpyClueButton").addEventListener("click", () => {
 });
 document.getElementById("wordSpyEndTurnButton").addEventListener("click", () => sendAction({ action: "end_turn" }));
 document.getElementById("wordSpyResignButton").addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("morningStartButton").addEventListener("click", () => sendAction({ action: "start_match" }));
+document.getElementById("morningSubmitButton").addEventListener("click", () => {
+  sendAction({
+    action: "submit_answer",
+    answer_text: document.getElementById("morningAnswerInput").value.trim(),
+  });
+});
+document.getElementById("morningOpenButton").addEventListener("click", () => sendAction({ action: "open_answer" }));
+document.getElementById("morningPauseButton").addEventListener("click", () => sendAction({ action: "toggle_pause" }));
+document.getElementById("morningNextRoundButton").addEventListener("click", () => sendAction({ action: "next_round" }));
+document.getElementById("morningResignButton").addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("morningJudgeButton").addEventListener("click", () => {
+  const checked = Array.from(
+    morningWinnerPickerEl.querySelectorAll("input[type='checkbox']:checked"),
+  ).map((input) => input.value);
+  sendAction({ action: "choose_winners", winner_symbols: checked });
+});
 document.getElementById("replayPrevButton").addEventListener("click", () => {
   state.replayTurn = Math.max(0, state.replayTurn - 1);
   render();
@@ -1776,5 +1903,11 @@ window.addEventListener("resize", () => {
     renderAuctionBoard(state.gameState);
   }
 });
+
+window.setInterval(() => {
+  if (state.gameState?.game_type === "morning_answer" && !state.gameState.paused && state.gameState.phase === "writing") {
+    render();
+  }
+}, 1000);
 
 loadGames();

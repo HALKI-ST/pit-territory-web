@@ -421,6 +421,76 @@
           </div>
         </aside>
       </div>
+
+      <div id="morningAnswerView" class="arena hidden">
+        <div class="board-wrap">
+          <div class="wordspy-topline">
+            <div class="stat-chip">
+              <span>フェーズ</span>
+              <strong id="morningPhaseLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>マスター</span>
+              <strong id="morningMasterLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>残り時間</span>
+              <strong id="morningTimerLabel">-</strong>
+            </div>
+          </div>
+
+          <div class="morning-prompt-card">
+            <p class="eyebrow">お題</p>
+            <h3 id="morningPromptLabel">-</h3>
+            <p id="morningPromptSubLabel" class="microcopy">-</p>
+          </div>
+
+          <div id="morningSeatRing" class="morning-seat-ring"></div>
+
+          <div class="morning-answer-board">
+            <div class="panel-block">
+              <p class="eyebrow">公開された回答</p>
+              <div id="morningAnswersPanel" class="morning-answers"></div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="morningStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <button id="morningStartButton" class="primary">このメンバーで開始</button>
+            <p class="microcopy">最初は部屋を作った人がマスターです。時計回りに交代します。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">操作</p>
+            <label class="field">
+              <span>回答</span>
+              <input id="morningAnswerInput" maxlength="40" placeholder="例: あさがお">
+            </label>
+            <div class="action-grid">
+              <button id="morningSubmitButton" class="primary">回答を送る</button>
+              <button id="morningOpenButton">オープン</button>
+              <button id="morningPauseButton">一時停止</button>
+            </div>
+            <div class="action-grid">
+              <button id="morningNextRoundButton">次のラウンドへ</button>
+              <button id="morningResignButton" class="danger">退室する</button>
+            </div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">勝者選択</p>
+            <div id="morningWinnerPicker" class="morning-winner-picker"></div>
+            <button id="morningJudgeButton" class="primary">この人たちを一番にする</button>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ラウンドログ</p>
+            <div id="morningHistoryPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
 

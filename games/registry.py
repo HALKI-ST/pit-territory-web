@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Callable, Dict
 
 from games.auction_race import AuctionRaceGame
+from games.morning_answer import MorningAnswerGame
 from games.mouse_trap import MouseTrapGame
 from games.pit_territory import PitTerritoryGame
 from games.word_spy import WordSpyGame
@@ -11,6 +12,7 @@ from games.word_spy import WordSpyGame
 GAME_REGISTRY: Dict[str, Callable[[], object]] = {
     PitTerritoryGame.game_type: PitTerritoryGame,
     AuctionRaceGame.game_type: AuctionRaceGame,
+    MorningAnswerGame.game_type: MorningAnswerGame,
     MouseTrapGame.game_type: MouseTrapGame,
     WordSpyGame.game_type: WordSpyGame,
 }
@@ -18,6 +20,7 @@ GAME_REGISTRY: Dict[str, Callable[[], object]] = {
 GAME_CATALOG = [
     PitTerritoryGame.catalog_entry(),
     AuctionRaceGame.catalog_entry(),
+    MorningAnswerGame.catalog_entry(),
     MouseTrapGame.catalog_entry(),
     WordSpyGame.catalog_entry(),
 ]

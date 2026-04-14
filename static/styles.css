@@ -1208,6 +1208,100 @@ button.danger {
   background: rgba(255, 255, 255, 0.92);
 }
 
+.morning-prompt-card {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255, 248, 236, 0.96), rgba(255, 255, 255, 0.88));
+  border: 1px solid rgba(118, 109, 96, 0.16);
+}
+
+.morning-prompt-card h3 {
+  margin: 8px 0;
+  font-size: 1.5rem;
+}
+
+.morning-seat-ring {
+  position: relative;
+  min-height: 420px;
+  margin-bottom: 18px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.85) 0 22%, transparent 22%),
+    radial-gradient(circle at center, rgba(12, 92, 134, 0.08) 0 55%, transparent 55%),
+    linear-gradient(145deg, rgba(236, 227, 211, 0.95), rgba(255, 252, 246, 0.9));
+  border: 1px solid rgba(118, 109, 96, 0.14);
+}
+
+.morning-seat {
+  position: absolute;
+  width: 150px;
+  min-height: 92px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(118, 109, 96, 0.16);
+  box-shadow: 0 10px 24px rgba(68, 57, 44, 0.08);
+}
+
+.morning-seat.master {
+  outline: 3px solid rgba(12, 92, 134, 0.18);
+}
+
+.morning-seat.crown {
+  background: linear-gradient(145deg, rgba(255, 247, 209, 0.96), rgba(255, 255, 255, 0.92));
+}
+
+.morning-seat span,
+.morning-seat small {
+  color: var(--muted);
+}
+
+.morning-answer-board .panel-block {
+  margin: 0;
+}
+
+.morning-answers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.morning-answer-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(118, 109, 96, 0.14);
+}
+
+.morning-answer-card.winner {
+  background: linear-gradient(145deg, rgba(255, 244, 205, 0.96), rgba(255, 255, 255, 0.92));
+  border-color: rgba(207, 162, 64, 0.38);
+}
+
+.morning-winner-picker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.morning-winner-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.morning-winner-option input {
+  width: auto;
+}
+
 @media (max-width: 1080px) {
   .hero,
   .arena,

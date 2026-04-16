@@ -275,6 +275,8 @@ def apply_player_action(room: Room, symbol: str, payload: dict) -> None:
             card_index=payload.get("card_index"),
             answer_text=payload.get("answer_text"),
             winner_symbols=payload.get("winner_symbols"),
+            settings=payload.get("settings"),
+            selected_cards=payload.get("selected_cards"),
         )
         return
 

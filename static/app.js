@@ -12,6 +12,7 @@ const state = {
   replayTurn: 0,
   englishWordListOpen: false,
   englishWordListCache: null,
+  fiveRulerDraft: {},
 };
 
 const boardEl = document.getElementById("board");
@@ -27,6 +28,7 @@ const mouseTrapViewEl = document.getElementById("mouseTrapView");
 const wordSpyViewEl = document.getElementById("wordSpyView");
 const morningAnswerViewEl = document.getElementById("morningAnswerView");
 const englishShooterViewEl = document.getElementById("englishShooterView");
+const fiveRulerViewEl = document.getElementById("fiveRulerView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -91,6 +93,43 @@ const morningAnswersPanelEl = document.getElementById("morningAnswersPanel");
 const morningStartPanelEl = document.getElementById("morningStartPanel");
 const morningWinnerPickerEl = document.getElementById("morningWinnerPicker");
 const morningHistoryPanelEl = document.getElementById("morningHistoryPanel");
+const fiveRulerEls = {
+  phaseLabel: document.getElementById("fiveRulerPhaseLabel"),
+  setLabel: document.getElementById("fiveRulerSetLabel"),
+  turnCountLabel: document.getElementById("fiveRulerTurnCountLabel"),
+  targetLabel: document.getElementById("fiveRulerTargetLabel"),
+  battleInfo: document.getElementById("fiveRulerBattleInfo"),
+  scoreBanner: document.getElementById("fiveRulerScoreBanner"),
+  ruleGrid: document.getElementById("fiveRulerRuleGrid"),
+  startPanel: document.getElementById("fiveRulerStartPanel"),
+  setupPanel: document.getElementById("fiveRulerSetupPanel"),
+  battlePanel: document.getElementById("fiveRulerBattlePanel"),
+  turnResultPanel: document.getElementById("fiveRulerTurnResultPanel"),
+  carryPanel: document.getElementById("fiveRulerCarryPanel"),
+  trimPanel: document.getElementById("fiveRulerTrimPanel"),
+  finishedPanel: document.getElementById("fiveRulerFinishedPanel"),
+  setupGrid: document.getElementById("fiveRulerSetupGrid"),
+  battleStatus: document.getElementById("fiveRulerBattleStatus"),
+  handPanel: document.getElementById("fiveRulerHandPanel"),
+  turnResultBody: document.getElementById("fiveRulerTurnResultBody"),
+  carryChoices: document.getElementById("fiveRulerCarryChoices"),
+  trimChoices: document.getElementById("fiveRulerTrimChoices"),
+  playersPanel: document.getElementById("fiveRulerPlayersPanel"),
+  myPlanPanel: document.getElementById("fiveRulerMyPlanPanel"),
+  revealPanel: document.getElementById("fiveRulerRevealPanel"),
+  ruleTextPanel: document.getElementById("fiveRulerRuleTextPanel"),
+  discardPanel: document.getElementById("fiveRulerDiscardPanel"),
+  setLogPanel: document.getElementById("fiveRulerSetLogPanel"),
+  turnLogPanel: document.getElementById("fiveRulerTurnLogPanel"),
+  startButton: document.getElementById("fiveRulerStartButton"),
+  submitPlanButton: document.getElementById("fiveRulerSubmitPlanButton"),
+  submitTurnButton: document.getElementById("fiveRulerSubmitTurnButton"),
+  resignButton: document.getElementById("fiveRulerResignButton"),
+  nextTurnButton: document.getElementById("fiveRulerNextTurnButton"),
+  submitCarryButton: document.getElementById("fiveRulerSubmitCarryButton"),
+  submitTrimButton: document.getElementById("fiveRulerSubmitTrimButton"),
+  rematchButton: document.getElementById("fiveRulerRematchButton"),
+};
 
 const settingEls = {
   startingBalance: document.getElementById("settingStartingBalance"),
@@ -407,6 +446,7 @@ function enterRoom(roomCode, token, symbol, gameType) {
   state.selectedGameType = gameType;
   state.auctionSettingsOpen = false;
   state.replayTurn = 0;
+  state.fiveRulerDraft = {};
   roomCodeLabelEl.textContent = `ルームID: ${roomCode}`;
   youAreEl.textContent = `${symbol} プレイヤー`;
   setMode("move");
@@ -423,6 +463,7 @@ function leaveRoom() {
   state.gameState = null;
   state.auctionSettingsOpen = false;
   state.replayTurn = 0;
+  state.fiveRulerDraft = {};
   gameSectionEl.classList.add("hidden");
   setLobbyStatus("ルームを退出しました。");
 }
@@ -457,6 +498,10 @@ function currentPlayerState() {
   return state.gameState.players[state.playerSymbol] || null;
 }
 
+function isFiveRulerType(gameType) {
+  return gameType === "five_ruler" || gameType === "five_ruler_2";
+}
+
 function render() {
   if (!state.gameState) {
     return;
@@ -477,6 +522,7 @@ function render() {
   wordSpyViewEl.classList.toggle("hidden", game.game_type !== "word_spy");
   morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
   englishShooterViewEl.classList.toggle("hidden", game.game_type !== "english_shooter");
+  fiveRulerViewEl.classList.toggle("hidden", !isFiveRulerType(game.game_type));
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -490,6 +536,8 @@ function render() {
     renderMorningAnswer(game);
   } else if (game.game_type === "english_shooter") {
     renderEnglishShooter(game);
+  } else if (isFiveRulerType(game.game_type)) {
+    renderFiveRuler(game);
   }
 }
 
@@ -1869,6 +1917,357 @@ function renderEnglishShooter(game) {
   }
 }
 
+function fiveRulerPhaseLabel(phase) {
+  const labels = {
+    waiting: "開始前",
+    setup: "ルール改変",
+    battle: "勝負",
+    turn_result: "ターン結果",
+    carry: "繰り越し",
+    trim: "手札調整",
+    finished: "終了",
+  };
+  return labels[phase] || phase || "-";
+}
+
+function fiveRulerSelectedCards(inputName) {
+  return Array.from(document.querySelectorAll(`input[name="${inputName}"]:checked`)).map((input) => Number(input.value));
+}
+
+function fiveRulerCurrentDraft(game) {
+  const draft = {};
+  for (const row of game.setup_plan || []) {
+    const firstVisible = (row.players || []).find((player) => player.symbol === state.playerSymbol);
+    if (firstVisible && firstVisible.slot_key && firstVisible.card_value) {
+      draft[row.set_number] = {
+        set_number: row.set_number,
+        slot_key: firstVisible.slot_key,
+        card_value: firstVisible.card_value,
+      };
+    }
+  }
+  for (const [setNumber, entry] of Object.entries(state.fiveRulerDraft || {})) {
+    draft[Number(setNumber)] = {
+      set_number: Number(setNumber),
+      slot_key: entry.slot_key || "",
+      card_value: entry.card_value || "",
+    };
+  }
+  return draft;
+}
+
+function renderFiveRulerSetupGrid(game) {
+  const draft = fiveRulerCurrentDraft(game);
+  const rows = game.setup_plan || [];
+  const editableSets = game.setup_mode === "incremental"
+    ? [game.next_planning_set].filter(Boolean)
+    : rows.map((row) => row.set_number);
+
+  fiveRulerEls.setupGrid.innerHTML = "";
+
+  for (const row of rows) {
+    const wrapper = document.createElement("div");
+    const editable = editableSets.includes(row.set_number) && !game.game_over;
+    wrapper.className = `five-ruler-plan-row ${editable ? "editable" : "locked"}`;
+    wrapper.dataset.setNumber = String(row.set_number);
+
+    const mine = (row.players || []).find((player) => player.symbol === state.playerSymbol);
+    const current = draft[row.set_number] || {
+      set_number: row.set_number,
+      slot_key: mine?.slot_key || "",
+      card_value: mine?.card_value || "",
+    };
+
+    if (editable) {
+      const usedSlots = new Set(
+        Object.values(draft)
+          .filter((entry) => Number(entry.set_number) !== row.set_number)
+          .map((entry) => entry.slot_key),
+      );
+      const usedValues = new Set(
+        Object.values(draft)
+          .filter((entry) => Number(entry.set_number) !== row.set_number)
+          .map((entry) => Number(entry.card_value)),
+      );
+
+      const slotOptions = (game.active_rules || [])
+        .map((rule) => `<option value="${rule.key}" ${current.slot_key === rule.key ? "selected" : ""} ${usedSlots.has(rule.key) ? "disabled" : ""}>${rule.label}</option>`)
+        .join("");
+      const valueOptions = Array.from({ length: 8 }, (_, index) => index + 2)
+        .map((value) => `<option value="${value}" ${Number(current.card_value) === value ? "selected" : ""} ${usedValues.has(value) ? "disabled" : ""}>${value}</option>`)
+        .join("");
+
+      wrapper.innerHTML = `
+        <strong>第${row.set_number}セット</strong>
+        <select data-plan-slot>
+          <option value="">変更するルール</option>
+          ${slotOptions}
+        </select>
+        <select data-plan-value>
+          <option value="">置く数字</option>
+          ${valueOptions}
+        </select>
+      `;
+    } else {
+      const items = (row.players || [])
+        .map((player) => {
+          const detail = player.revealed && player.slot_key
+            ? `${player.slot_label} → ${player.card_value}`
+            : "未公開";
+          return `<span>${player.symbol}: ${detail}</span>`;
+        })
+        .join("");
+      wrapper.innerHTML = `
+        <strong>第${row.set_number}セット</strong>
+        ${items || "<span>まだ未設定です。</span>"}
+      `;
+    }
+
+    fiveRulerEls.setupGrid.appendChild(wrapper);
+  }
+}
+
+function renderFiveRulerCardChoices(container, cards, inputName, selectedCards = [], locked = false) {
+  container.innerHTML = "";
+  const counts = {};
+  for (const value of selectedCards) {
+    counts[value] = (counts[value] || 0) + 1;
+  }
+
+  cards.forEach((value, index) => {
+    const key = `${inputName}-${index}`;
+    const shouldCheck = (counts[value] || 0) > 0;
+    if (shouldCheck) {
+      counts[value] -= 1;
+    }
+
+    const label = document.createElement("label");
+    label.className = "five-ruler-card-choice";
+    label.innerHTML = `
+      <input type="checkbox" name="${inputName}" value="${value}" ${shouldCheck ? "checked" : ""} ${locked ? "disabled" : ""}>
+      <span><strong>${value}</strong></span>
+    `;
+    label.querySelector("input").id = key;
+    container.appendChild(label);
+  });
+}
+
+function renderFiveRuler(game) {
+  const host = isHost(game);
+  const myPlayer = currentPlayerState() || {};
+  const isSetup = game.phase === "setup";
+  const isBattle = game.phase === "battle";
+  const isTurnResult = game.phase === "turn_result";
+  const isCarry = game.phase === "carry";
+  const isTrim = game.phase === "trim";
+  const isFinished = game.phase === "finished";
+  const joined = game.player_order || [];
+  const playLimit = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "play_limit")?.value || 0);
+  const carryLimit = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "carry_limit")?.value || 0);
+  const handSize = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "hand_size")?.value || 0);
+
+  if (!isSetup) {
+    state.fiveRulerDraft = {};
+  }
+
+  turnLabelEl.textContent = game.game_over
+    ? "ゲーム終了"
+    : game.started
+      ? `第${game.current_set || 1}セット / ${fiveRulerPhaseLabel(game.phase)}`
+      : "開始待ち";
+
+  fiveRulerEls.phaseLabel.textContent = fiveRulerPhaseLabel(game.phase);
+  fiveRulerEls.setLabel.textContent = game.current_set ? `第${game.current_set}セット` : "準備中";
+  fiveRulerEls.turnCountLabel.textContent = game.current_set ? `${game.current_turn}/${game.turns_per_set}` : "-";
+  fiveRulerEls.targetLabel.textContent = game.target_value ?? "-";
+  fiveRulerEls.battleInfo.textContent = game.message || "今セットのルールを見ながら進めてください。";
+  fiveRulerEls.scoreBanner.textContent = joined.length >= 2
+    ? `このセットのターン勝利数: ${joined.map((symbol) => `${symbol} ${game.set_turn_wins?.[symbol] || 0}`).join(" 対 ")}`
+    : "2人そろうとゲーム開始できます。";
+
+  fiveRulerEls.startPanel.classList.toggle("hidden", game.started || game.game_over || !host);
+  fiveRulerEls.setupPanel.classList.toggle("hidden", !isSetup);
+  fiveRulerEls.battlePanel.classList.toggle("hidden", !isBattle);
+  fiveRulerEls.turnResultPanel.classList.toggle("hidden", !isTurnResult);
+  fiveRulerEls.carryPanel.classList.toggle("hidden", !isCarry);
+  fiveRulerEls.trimPanel.classList.toggle("hidden", !isTrim);
+  fiveRulerEls.finishedPanel.classList.toggle("hidden", !isFinished);
+
+  fiveRulerEls.ruleGrid.innerHTML = "";
+  for (const rule of game.active_rules || []) {
+    const card = document.createElement("div");
+    card.className = `five-ruler-rule-card ${rule.changed_this_set ? "changed" : ""}`;
+    card.innerHTML = `
+      <span>${rule.label}</span>
+      <strong>${rule.value}</strong>
+      <small>${rule.change_summary || "このセットで変更なし"}</small>
+    `;
+    fiveRulerEls.ruleGrid.appendChild(card);
+  }
+
+  renderFiveRulerSetupGrid(game);
+  renderFiveRulerCardChoices(
+    fiveRulerEls.handPanel,
+    myPlayer.hand || [],
+    "five-ruler-battle-card",
+    myPlayer.selected_cards || [],
+    Boolean(game.turn_submissions_locked?.[state.playerSymbol]),
+  );
+  renderFiveRulerCardChoices(
+    fiveRulerEls.carryChoices,
+    myPlayer.hand || [],
+    "five-ruler-carry-card",
+    myPlayer.carry_cards || [],
+    Boolean(myPlayer.ready_carry),
+  );
+  renderFiveRulerCardChoices(
+    fiveRulerEls.trimChoices,
+    myPlayer.hand || [],
+    "five-ruler-trim-card",
+    myPlayer.hand || [],
+    Boolean(myPlayer.ready_trim),
+  );
+
+  fiveRulerEls.battleStatus.innerHTML = "";
+  for (const symbol of joined) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const chip = document.createElement("div");
+    chip.className = `five-ruler-status-chip ${game.turn_submissions_locked?.[symbol] ? "done" : ""}`;
+    chip.textContent = game.turn_submissions_locked?.[symbol]
+      ? `${player.name}: 提出済み`
+      : `${player.name}: 選択中`;
+    fiveRulerEls.battleStatus.appendChild(chip);
+  }
+
+  fiveRulerEls.turnResultBody.innerHTML = "";
+  if (game.last_turn_result) {
+    for (const row of game.last_turn_result.rows || []) {
+      const card = document.createElement("div");
+      card.className = "five-ruler-log-card";
+      card.innerHTML = `
+        <strong>${row.player_name}</strong>
+        <span>カード: ${(row.cards || []).join(" × ") || "0枚"}</span>
+        <span>数値: ${row.value ?? "未提出"}</span>
+        <span>目標との差: ${row.distance ?? "-"}</span>
+      `;
+      fiveRulerEls.turnResultBody.appendChild(card);
+    }
+    const result = document.createElement("div");
+    result.className = "five-ruler-log-card active-plan";
+    result.innerHTML = `<strong>勝者</strong><span>${game.last_turn_result.winner_name || "引き分け"}</span>`;
+    fiveRulerEls.turnResultBody.appendChild(result);
+  } else {
+    fiveRulerEls.turnResultBody.innerHTML = "<div class=\"five-ruler-log-card\"><span>まだ結果はありません。</span></div>";
+  }
+
+  fiveRulerEls.playersPanel.innerHTML = "";
+  for (const symbol of joined) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const panel = document.createElement("div");
+    panel.className = `english-player-card ${symbol === state.playerSymbol ? "you" : ""}`;
+    panel.innerHTML = `
+      <strong>${player.name}</strong>
+      <span>${symbol === state.playerSymbol ? "あなた" : symbol}</span>
+      <span>セット勝利 ${player.set_wins || 0}</span>
+      <span>ターン勝利 ${game.set_turn_wins?.[symbol] || 0}</span>
+      <span>${game.turn_submissions_locked?.[symbol] ? "提出済み" : "未提出"}</span>
+    `;
+    fiveRulerEls.playersPanel.appendChild(panel);
+  }
+
+  const myPlanRows = [];
+  for (const row of game.setup_plan || []) {
+    const mine = (row.players || []).find((player) => player.symbol === state.playerSymbol);
+    if (!mine) continue;
+    myPlanRows.push(`
+      <div class="five-ruler-log-card ${game.next_planning_set === row.set_number ? "active-plan" : ""}">
+        <strong>第${row.set_number}セット</strong>
+        <span>${mine.slot_key ? `${mine.slot_label} → ${mine.card_value}` : "まだ未設定"}</span>
+      </div>
+    `);
+  }
+  fiveRulerEls.myPlanPanel.innerHTML = myPlanRows.join("") || "<div class=\"five-ruler-log-card\"><span>まだありません。</span></div>";
+
+  fiveRulerEls.revealPanel.innerHTML = (game.revealed_changes || []).map((change) => `
+    <div class="five-ruler-reveal-row ${change.source}">
+      <strong>${change.slot_label}</strong>
+      <span>${change.previous_value} → ${change.new_value}</span>
+      <small>${change.summary}</small>
+    </div>
+  `).join("") || "<div class=\"five-ruler-log-card\"><span>このセットで公開された改変はまだありません。</span></div>";
+
+  fiveRulerEls.ruleTextPanel.innerHTML = (game.rule_texts || []).map((text) => `<div class="five-ruler-log-card">${text}</div>`).join("");
+  fiveRulerEls.discardPanel.innerHTML = (game.discard_pile || []).map((value) => `<span class="five-ruler-discard-chip">${value}</span>`).join("")
+    || "<span class=\"microcopy\">まだありません。</span>";
+  fiveRulerEls.setLogPanel.innerHTML = (game.set_log || []).slice().reverse().map((entry) => `
+    <div class="five-ruler-log-card">
+      <strong>第${entry.set_number}セット</strong>
+      <span>${entry.winner_name}</span>
+      <span>${Object.entries(entry.turns_won || {}).map(([symbol, wins]) => `${symbol} ${wins}`).join(" 対 ")}</span>
+    </div>
+  `).join("") || "<div class=\"five-ruler-log-card\"><span>まだセット結果はありません。</span></div>";
+  fiveRulerEls.turnLogPanel.innerHTML = (game.turn_log || []).slice().reverse().map((entry) => `
+    <div class="five-ruler-log-card">
+      <strong>第${entry.set_number}セット ${entry.turn_number}ターン目</strong>
+      <span>勝者: ${entry.winner_name}</span>
+      <span>${(entry.rows || []).map((row) => `${row.player_name}:${row.value ?? "未提出"}`).join(" / ")}</span>
+    </div>
+  `).join("") || "<div class=\"five-ruler-log-card\"><span>まだターンログはありません。</span></div>";
+
+  fiveRulerEls.submitPlanButton.disabled = !isSetup;
+  fiveRulerEls.submitTurnButton.disabled = !isBattle || game.turn_submissions_locked?.[state.playerSymbol] || fiveRulerSelectedCards("five-ruler-battle-card").length > playLimit;
+  fiveRulerEls.submitCarryButton.disabled = !isCarry || fiveRulerSelectedCards("five-ruler-carry-card").length > carryLimit;
+  fiveRulerEls.submitTrimButton.disabled = !isTrim || fiveRulerSelectedCards("five-ruler-trim-card").length !== handSize;
+  fiveRulerEls.nextTurnButton.disabled = !isTurnResult;
+  refreshFiveRulerSelectionButtons();
+}
+
+function submitFiveRulerPlan() {
+  const game = state.gameState;
+  if (!game || !isFiveRulerType(game.game_type)) {
+    return;
+  }
+
+  const draft = fiveRulerCurrentDraft(game);
+  let entries = Object.values(draft).filter((entry) => entry.slot_key && entry.card_value);
+  if (game.setup_mode === "incremental") {
+    entries = entries.filter((entry) => Number(entry.set_number) === Number(game.next_planning_set));
+  }
+  if (entries.length === 0) {
+    messageLabelEl.textContent = "改変内容を選んでください。";
+    return;
+  }
+  sendAction({ action: "submit_rule_plan", settings: { entries } });
+}
+
+function refreshFiveRulerSelectionButtons() {
+  const game = state.gameState;
+  if (!game || !isFiveRulerType(game.game_type)) {
+    return;
+  }
+  const playLimit = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "play_limit")?.value || 0);
+  const carryLimit = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "carry_limit")?.value || 0);
+  const handSize = Math.max(0, (game.active_rules || []).find((rule) => rule.key === "hand_size")?.value || 0);
+  if (fiveRulerEls.submitTurnButton) {
+    fiveRulerEls.submitTurnButton.disabled =
+      game.phase !== "battle"
+      || Boolean(game.turn_submissions_locked?.[state.playerSymbol])
+      || fiveRulerSelectedCards("five-ruler-battle-card").length > playLimit;
+  }
+  if (fiveRulerEls.submitCarryButton) {
+    fiveRulerEls.submitCarryButton.disabled =
+      game.phase !== "carry"
+      || fiveRulerSelectedCards("five-ruler-carry-card").length > carryLimit;
+  }
+  if (fiveRulerEls.submitTrimButton) {
+    fiveRulerEls.submitTrimButton.disabled =
+      game.phase !== "trim"
+      || fiveRulerSelectedCards("five-ruler-trim-card").length !== handSize;
+  }
+}
+
 function wordSpyTeamLabel(team) {
   return team === "red" ? "赤チーム" : team === "blue" ? "青チーム" : "未設定";
 }
@@ -2188,6 +2587,54 @@ document.getElementById("replayNextButton").addEventListener("click", () => {
   const maxTurn = state.gameState?.round_history?.length || 0;
   state.replayTurn = Math.min(maxTurn, state.replayTurn + 1);
   render();
+});
+fiveRulerEls.startButton?.addEventListener("click", () => sendAction({ action: "start_match" }));
+fiveRulerEls.submitPlanButton?.addEventListener("click", submitFiveRulerPlan);
+fiveRulerEls.submitTurnButton?.addEventListener("click", () => {
+  sendAction({ action: "submit_turn_cards", selected_cards: fiveRulerSelectedCards("five-ruler-battle-card") });
+});
+fiveRulerEls.submitCarryButton?.addEventListener("click", () => {
+  sendAction({ action: "submit_carry_cards", selected_cards: fiveRulerSelectedCards("five-ruler-carry-card") });
+});
+fiveRulerEls.submitTrimButton?.addEventListener("click", () => {
+  sendAction({ action: "submit_trim_cards", selected_cards: fiveRulerSelectedCards("five-ruler-trim-card") });
+});
+fiveRulerEls.nextTurnButton?.addEventListener("click", () => sendAction({ action: "next_turn" }));
+fiveRulerEls.resignButton?.addEventListener("click", () => sendAction({ action: "resign" }));
+fiveRulerEls.rematchButton?.addEventListener("click", () => sendAction({ action: "rematch" }));
+fiveRulerEls.setupGrid?.addEventListener("change", () => {
+  if (!state.gameState || !isFiveRulerType(state.gameState.game_type)) {
+    return;
+  }
+  for (const rowEl of fiveRulerEls.setupGrid.querySelectorAll("[data-set-number]")) {
+    const setNumber = Number(rowEl.dataset.setNumber);
+    const slotSelect = rowEl.querySelector("[data-plan-slot]");
+    const valueSelect = rowEl.querySelector("[data-plan-value]");
+    if (!slotSelect || !valueSelect) {
+      continue;
+    }
+    state.fiveRulerDraft[setNumber] = {
+      set_number: setNumber,
+      slot_key: slotSelect.value || "",
+      card_value: valueSelect.value ? Number(valueSelect.value) : "",
+    };
+  }
+  renderFiveRuler(state.gameState);
+});
+fiveRulerEls.handPanel?.addEventListener("change", () => {
+  if (state.gameState && isFiveRulerType(state.gameState.game_type)) {
+    refreshFiveRulerSelectionButtons();
+  }
+});
+fiveRulerEls.carryChoices?.addEventListener("change", () => {
+  if (state.gameState && isFiveRulerType(state.gameState.game_type)) {
+    refreshFiveRulerSelectionButtons();
+  }
+});
+fiveRulerEls.trimChoices?.addEventListener("change", () => {
+  if (state.gameState && isFiveRulerType(state.gameState.game_type)) {
+    refreshFiveRulerSelectionButtons();
+  }
 });
 
 bindDirectionButton("dirUpButton", "up");

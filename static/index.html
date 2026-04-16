@@ -662,6 +662,125 @@
           </div>
         </aside>
       </div>
+
+      <div id="fiveRulerView" class="arena hidden">
+        <div class="board-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>フェーズ</span>
+              <strong id="fiveRulerPhaseLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>セット</span>
+              <strong id="fiveRulerSetLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>ターン</span>
+              <strong id="fiveRulerTurnCountLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>目標値</span>
+              <strong id="fiveRulerTargetLabel">-</strong>
+            </div>
+          </div>
+
+          <div class="panel-block five-ruler-board">
+            <div class="five-ruler-head">
+              <div>
+                <p class="eyebrow">Current Rules</p>
+                <h3>今セットのルール</h3>
+              </div>
+              <p id="fiveRulerBattleInfo" class="microcopy">-</p>
+            </div>
+            <div id="fiveRulerScoreBanner" class="five-ruler-score-banner">-</div>
+            <div id="fiveRulerRuleGrid" class="five-ruler-rule-grid"></div>
+          </div>
+
+          <div id="fiveRulerSetupPanel" class="panel-block hidden">
+            <p class="eyebrow">ルール改変パート</p>
+            <div id="fiveRulerSetupGrid" class="five-ruler-setup-grid"></div>
+            <button id="fiveRulerSubmitPlanButton" class="primary">この配置で確定する</button>
+            <p class="microcopy">2セット目から9セット目まで、各セットでどのルールをどの数字に変えるかを一気に決めます。</p>
+          </div>
+
+          <div id="fiveRulerBattlePanel" class="panel-block hidden">
+            <p class="eyebrow">勝負パート</p>
+            <div id="fiveRulerBattleStatus" class="five-ruler-battle-status"></div>
+            <div id="fiveRulerHandPanel" class="five-ruler-card-grid"></div>
+            <div class="action-grid">
+              <button id="fiveRulerSubmitTurnButton" class="primary">このカードで勝負する</button>
+              <button id="fiveRulerResignButton" class="danger">降参する</button>
+            </div>
+            <p class="microcopy">0枚でも決定できます。複数枚出した場合はすべて掛け算されます。</p>
+          </div>
+
+          <div id="fiveRulerTurnResultPanel" class="panel-block hidden">
+            <p class="eyebrow">ターン結果</p>
+            <div id="fiveRulerTurnResultBody" class="log-panel"></div>
+            <button id="fiveRulerNextTurnButton" class="primary">次へ</button>
+          </div>
+
+          <div id="fiveRulerCarryPanel" class="panel-block hidden">
+            <p class="eyebrow">繰り越し選択</p>
+            <div id="fiveRulerCarryChoices" class="five-ruler-card-grid"></div>
+            <button id="fiveRulerSubmitCarryButton" class="primary">このカードを次セットへ持ち越す</button>
+          </div>
+
+          <div id="fiveRulerTrimPanel" class="panel-block hidden">
+            <p class="eyebrow">手札調整</p>
+            <div id="fiveRulerTrimChoices" class="five-ruler-card-grid"></div>
+            <button id="fiveRulerSubmitTrimButton" class="primary">このカードを残す</button>
+          </div>
+
+          <div id="fiveRulerFinishedPanel" class="panel-block hidden">
+            <p class="eyebrow">結果</p>
+            <button id="fiveRulerRematchButton" class="primary">もう一度やる</button>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="fiveRulerStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <button id="fiveRulerStartButton" class="primary">このメンバーで始める</button>
+            <p class="microcopy">先に2人そろってから、部屋主が開始してください。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">プレイヤー</p>
+            <div id="fiveRulerPlayersPanel" class="english-players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">あなたの改変順</p>
+            <div id="fiveRulerMyPlanPanel" class="log-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">このセットで公開された改変</p>
+            <div id="fiveRulerRevealPanel" class="log-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ルール全文</p>
+            <div id="fiveRulerRuleTextPanel" class="log-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">墓地</p>
+            <div id="fiveRulerDiscardPanel" class="five-ruler-discard"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">セット結果</p>
+            <div id="fiveRulerSetLogPanel" class="log-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ターンログ</p>
+            <div id="fiveRulerTurnLogPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
 

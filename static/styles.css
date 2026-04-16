@@ -1725,6 +1725,196 @@ button.danger {
   width: auto;
 }
 
+.five-ruler-board {
+  display: grid;
+  gap: 16px;
+}
+
+.five-ruler-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.five-ruler-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.five-ruler-score-banner {
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(231, 244, 251, 0.96), rgba(255, 255, 255, 0.9));
+  border: 1px solid rgba(30, 124, 171, 0.16);
+  color: #154b67;
+  font-weight: 700;
+}
+
+.five-ruler-rule-card,
+.five-ruler-log-card,
+.five-ruler-reveal-row {
+  border: 1px solid rgba(34, 87, 122, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.five-ruler-rule-card span,
+.five-ruler-log-card span,
+.five-ruler-reveal-row span,
+.five-ruler-reveal-row small {
+  color: var(--muted);
+}
+
+.five-ruler-rule-card strong {
+  font-size: 1.6rem;
+  color: #183042;
+}
+
+.five-ruler-rule-card small {
+  color: var(--muted);
+}
+
+.five-ruler-rule-card.changed {
+  border-color: rgba(223, 131, 46, 0.44);
+  background: linear-gradient(180deg, rgba(255, 247, 224, 0.95), rgba(255, 255, 255, 0.88));
+  box-shadow: 0 0 0 3px rgba(223, 131, 46, 0.08);
+}
+
+.five-ruler-setup-grid,
+.five-ruler-card-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.five-ruler-plan-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 140px;
+  gap: 12px;
+  align-items: center;
+}
+
+.five-ruler-plan-row.locked {
+  opacity: 0.6;
+}
+
+.five-ruler-plan-row.editable {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(30, 124, 171, 0.06);
+}
+
+.five-ruler-plan-row strong {
+  font-size: 0.95rem;
+}
+
+.five-ruler-plan-row select {
+  width: 100%;
+  border: 1px solid rgba(34, 87, 122, 0.18);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.five-ruler-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+
+.five-ruler-battle-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.five-ruler-status-chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(24, 48, 66, 0.08);
+  color: #183042;
+  font-size: 0.88rem;
+}
+
+.five-ruler-status-chip.done {
+  background: rgba(28, 135, 88, 0.14);
+  color: #176344;
+}
+
+.five-ruler-card-choice {
+  position: relative;
+  display: block;
+}
+
+.five-ruler-card-choice input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.five-ruler-card-choice span {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  border-radius: 18px;
+  border: 1px solid rgba(34, 87, 122, 0.18);
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(233,241,248,0.92));
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #17364a;
+  cursor: pointer;
+}
+
+.five-ruler-card-choice input:checked + span {
+  border-color: #1e7cab;
+  box-shadow: 0 0 0 3px rgba(30, 124, 171, 0.12);
+  background: linear-gradient(180deg, rgba(223,242,252,0.98), rgba(193,226,244,0.92));
+}
+
+.five-ruler-discard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.five-ruler-discard-chip {
+  min-width: 38px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(24, 48, 66, 0.08);
+  color: #183042;
+  text-align: center;
+  font-weight: 700;
+}
+
+.five-ruler-log-card.active-plan {
+  border-color: rgba(30, 124, 171, 0.36);
+  background: linear-gradient(180deg, rgba(232, 245, 255, 0.94), rgba(255, 255, 255, 0.9));
+}
+
+.five-ruler-reveal-row.difference {
+  border-color: rgba(32, 111, 176, 0.28);
+  background: linear-gradient(180deg, rgba(232, 245, 255, 0.94), rgba(255, 255, 255, 0.88));
+}
+
+.five-ruler-reveal-row.single {
+  border-color: rgba(214, 160, 58, 0.28);
+}
+
+.five-ruler-inline-number {
+  display: inline-block;
+  margin: 0 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(30, 124, 171, 0.1);
+  color: #145a7d;
+  font-size: 1.08em;
+  font-weight: 800;
+}
+
 @media (max-width: 1080px) {
   .hero,
   .arena,
@@ -1774,5 +1964,9 @@ button.danger {
 
   .dir-button {
     min-height: 60px;
+  }
+
+  .five-ruler-plan-row {
+    grid-template-columns: 1fr;
   }
 }

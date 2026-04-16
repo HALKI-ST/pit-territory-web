@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from games import GAME_CATALOG, create_game
+from games.english_shooter import WORD_BANK as ENGLISH_SHOOTER_WORD_BANK
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -189,6 +190,18 @@ async def health() -> dict:
 @app.get("/api/games")
 async def games() -> dict:
     return {"games": GAME_CATALOG}
+
+
+@app.get("/api/english-shooter-words")
+async def english_shooter_words() -> dict:
+    words = [
+        {
+            "english": item["english"],
+            "japanese": " / ".join(item["japanese"]),
+        }
+        for item in ENGLISH_SHOOTER_WORD_BANK
+    ]
+    return {"words": words, "count": len(words)}
 
 
 @app.post("/api/rooms")

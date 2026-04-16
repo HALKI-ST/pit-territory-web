@@ -10,6 +10,8 @@ const state = {
   mode: "move",
   auctionSettingsOpen: false,
   replayTurn: 0,
+  englishWordListOpen: false,
+  englishWordListCache: null,
 };
 
 const boardEl = document.getElementById("board");
@@ -24,6 +26,7 @@ const auctionGameViewEl = document.getElementById("auctionGameView");
 const mouseTrapViewEl = document.getElementById("mouseTrapView");
 const wordSpyViewEl = document.getElementById("wordSpyView");
 const morningAnswerViewEl = document.getElementById("morningAnswerView");
+const englishShooterViewEl = document.getElementById("englishShooterView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -50,7 +53,6 @@ const auctionReplayPanelEl = document.getElementById("auctionReplayPanel");
 const auctionRoundLabelEl = document.getElementById("auctionRoundLabel");
 const auctionRollLabelEl = document.getElementById("auctionRollLabel");
 const auctionTrackLabelEl = document.getElementById("auctionTrackLabel");
-const auctionBidTimerLabelEl = document.getElementById("auctionBidTimerLabel");
 const bankBalanceLabelEl = document.getElementById("bankBalanceLabel");
 const bidUnitsInputEl = document.getElementById("bidUnitsInput");
 const goalRewardBannerEl = document.getElementById("goalRewardBanner");
@@ -474,6 +476,7 @@ function render() {
   mouseTrapViewEl.classList.toggle("hidden", game.game_type !== "mouse_trap");
   wordSpyViewEl.classList.toggle("hidden", game.game_type !== "word_spy");
   morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
+  englishShooterViewEl.classList.toggle("hidden", game.game_type !== "english_shooter");
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -485,6 +488,8 @@ function render() {
     renderWordSpy(game);
   } else if (game.game_type === "morning_answer") {
     renderMorningAnswer(game);
+  } else if (game.game_type === "english_shooter") {
+    renderEnglishShooter(game);
   }
 }
 
@@ -1370,191 +1375,12 @@ function renderMouseBoard(game) {
   }
 }
 
-function handleMouseWallClick(game, edgeId) {
-  if (game.phase !== "build" || game.game_over || state.playerSymbol !== game.active_player_symbol) {
-    return;
-  }
-  sendAction({ action: "place_wall", edge_id: edgeId });
-}
-
 function handleMouseCellClick(game, cell) {
   if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_side) {
     return;
   }
 
   if (game.active_side === "H") {
-    const humans = mouseHumansAtCell(game, cell);
-    if (humans.length > 0) {
-      mouseSelection.humanPiece = humans[0];
-      render();
-      return;
-    }
-    if (!mouseSelection.humanPiece) {
-      messageLabelEl.textContent = "先に H1 か H2 を選んでください。";
-      return;
-    }
-    sendAction({ action: "move_human", cell, piece: mouseSelection.humanPiece });
-    mouseSelection.humanPiece = null;
-    return;
-  }
-
-  sendAction({ action: "move_mouse", cell });
-}
-
-function renderMouseBoard(game) {
-  mouseBoardEl.innerHTML = "";
-  mouseBoardEl.style.gridTemplateColumns = "";
-
-  const humanCells = new Map();
-  game.humans.forEach((cell, index) => {
-    const key = mouseCellKey(cell);
-    if (!humanCells.has(key)) humanCells.set(key, []);
-    humanCells.get(key).push(index === 0 ? "H1" : "H2");
-  });
-  const wallSet = new Set(game.walls || []);
-  const selectedOrigin = mouseSelection.humanPiece === "H1"
-    ? game.humans[0]
-    : mouseSelection.humanPiece === "H2"
-      ? game.humans[1]
-      : null;
-  const validHumanMoves = new Set(
-    selectedOrigin
-      ? mouseNeighbors(game, selectedOrigin)
-        .filter((cell) => !mouseHumansAtCell(game, cell).length || (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]))
-        .map((cell) => mouseCellKey(cell))
-      : [],
-  );
-  const validMouseMoves = new Set(
-    mouseNeighbors(game, game.mouse)
-      .filter((cell) => mouseHumansAtCell(game, cell).length === 0)
-      .map((cell) => mouseCellKey(cell)),
-  );
-  const isHumanTurn = game.phase === "chase" && game.active_side === "human" && state.playerSymbol === game.active_player_symbol && !game.game_over;
-  const isMouseTurn = game.phase === "chase" && game.active_side === "mouse" && state.playerSymbol === game.active_player_symbol && !game.game_over;
-  const isBuildTurn = game.phase === "build" && state.playerSymbol === game.active_player_symbol && !game.game_over;
-
-  for (let row = 0; row < 9; row += 1) {
-    for (let col = 0; col < 9; col += 1) {
-      const isCell = row % 2 === 0 && col % 2 === 0;
-      const isVertical = row % 2 === 0 && col % 2 === 1;
-      const isHorizontal = row % 2 === 1 && col % 2 === 0;
-      const node = document.createElement("button");
-      node.type = "button";
-
-      if (isCell) {
-        const cell = [row / 2, col / 2];
-        const key = mouseCellKey(cell);
-        node.className = "mouse-cell";
-        const humans = humanCells.get(key) || [];
-
-        if (isHumanTurn && validHumanMoves.has(key)) node.classList.add("human-move-target");
-        if (isMouseTurn && validMouseMoves.has(key)) node.classList.add("mouse-move-target");
-        if (humans.length > 0 && isHumanTurn) node.classList.add("occupied-human-cell");
-
-        if (humans.length > 0) {
-          const wrap = document.createElement("div");
-          wrap.className = "mouse-piece-wrap";
-          for (const human of humans) {
-            const piece = document.createElement("div");
-            piece.className = `mouse-piece human-piece ${mouseSelection.humanPiece === human ? "selected" : ""}`;
-            piece.textContent = human;
-            piece.addEventListener("click", (event) => {
-              event.stopPropagation();
-              if (isHumanTurn) {
-                mouseSelection.humanPiece = human;
-                render();
-              }
-            });
-            wrap.appendChild(piece);
-          }
-          node.appendChild(wrap);
-        }
-
-        if (game.mouse[0] === cell[0] && game.mouse[1] === cell[1]) {
-          const mousePiece = document.createElement("div");
-          mousePiece.className = "mouse-piece mouse-token";
-          mousePiece.textContent = "M";
-          node.appendChild(mousePiece);
-        }
-
-        const label = document.createElement("span");
-        label.className = "mouse-cell-label";
-        label.textContent = `${cell[0] + 1},${cell[1] + 1}`;
-        node.appendChild(label);
-        node.addEventListener("click", () => handleMouseCellClick(game, cell));
-      } else if (isVertical) {
-        const edgeId = `v:${row / 2}:${(col - 1) / 2}`;
-        node.className = `mouse-edge vertical ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
-        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
-      } else if (isHorizontal) {
-        const edgeId = `h:${(row - 1) / 2}:${col / 2}`;
-        node.className = `mouse-edge horizontal ${wallSet.has(edgeId) ? "wall-on" : ""} ${isBuildTurn && !wallSet.has(edgeId) ? "wall-slot" : ""}`;
-        node.addEventListener("click", () => handleMouseWallClick(game, edgeId));
-      } else {
-        node.className = "mouse-joint";
-        node.disabled = true;
-      }
-      mouseBoardEl.appendChild(node);
-    }
-  }
-}
-
-function mouseGuideText(game) {
-  if (game.game_over) {
-    return "対戦終了です。ログを見ながら感想戦できます。";
-  }
-  if (!game.started) {
-    return isHost(game)
-      ? "部屋主が人間かネズミかを決めてから開始してください。"
-      : "部屋主が人間かネズミかを決めるまで待ってください。";
-  }
-  if (game.phase === "build") {
-    return state.playerSymbol === game.active_player_symbol
-      ? `${game.active_side === "human" ? "人間" : "ネズミ"}側です。明るい線を押して壁を1本置いてください。`
-      : `${game.active_side === "human" ? "人間" : "ネズミ"}側が壁を置いています。`;
-  }
-  if (state.playerSymbol !== game.active_player_symbol) {
-    return `いまは${game.active_side === "human" ? "人間" : "ネズミ"}側の番です。`;
-  }
-  if (game.active_side === "human") {
-    return "H1 か H2 を選んでから、隣のマスを押してください。";
-  }
-  return game.mouse_steps_taken === 0
-    ? "ネズミの1歩目です。隣のマスを押してください。"
-    : "ネズミの2歩目です。続けて隣のマスを押してください。";
-}
-
-function renderMouseTrap(game) {
-  if (game.phase !== "chase" || game.active_side !== "human") {
-    mouseSelection.humanPiece = null;
-  }
-  document.getElementById("mouseStartPanel").classList.toggle("hidden", game.started);
-  mouseRematchPanelEl.classList.toggle("hidden", !game.game_over);
-  document.getElementById("mouseResetSelectionButton").disabled = game.game_over;
-  turnLabelEl.textContent = game.game_over
-    ? "ゲーム終了"
-    : !game.started
-      ? "開始前"
-      : game.phase === "build"
-        ? `${game.active_side === "human" ? "壁作成: 人間" : "壁作成: ネズミ"}`
-        : `${game.chase_turn}ターン目 / ${game.active_side === "human" ? "人間" : "ネズミ"} の番`;
-
-  mousePhaseLabelEl.textContent = !game.started ? "開始前" : game.phase === "build" ? "壁作成" : "追跡";
-  mouseWallLabelEl.textContent = `${game.wall_count}/${game.max_walls}`;
-  mouseTurnLabelEl.textContent = game.phase === "build" ? "-" : `${game.chase_turn}/${game.max_chase_turns}`;
-  mouseGuideLabelEl.textContent = mouseGuideText(game);
-
-  renderMouseBoard(game);
-  renderSimpleLog(mouseBuildLogEl, game.build_log || []);
-  renderSimpleLog(mouseChaseLogEl, game.chase_log || []);
-}
-
-function handleMouseCellClick(game, cell) {
-  if (game.phase !== "chase" || game.game_over || state.playerSymbol !== game.active_player_symbol) {
-    return;
-  }
-
-  if (game.active_side === "human") {
     const humans = mouseHumansAtCell(game, cell);
     if (humans.length > 0) {
       mouseSelection.humanPiece = humans[0];
@@ -1609,7 +1435,7 @@ function renderWordSpy(game) {
   const myTeam = state.playerSymbol?.startsWith("R") ? "red" : "blue";
   const myTeamInfo = game.teams?.[myTeam];
 
-  wordSpyStartPanelEl.classList.toggle("hidden", (game.started && !game.game_over) || !host);
+  wordSpyStartPanelEl.classList.toggle("hidden", game.started || game.game_over || !host);
   wordSpyRematchPanelEl.classList.toggle("hidden", !game.game_over);
 
   turnLabelEl.textContent = game.game_over
@@ -1780,169 +1606,267 @@ function renderMorningWinnerPicker(game) {
   }
 }
 
-function renderAuctionRace(game, myPlayer) {
+function collectEnglishShooterSettings() {
+  return {
+    mode: document.getElementById("englishModeSelect").value,
+    player_hp: Number(document.getElementById("englishPlayerHpInput").value || 20),
+  };
+}
+
+async function loadEnglishShooterWords() {
+  if (state.englishWordListCache) {
+    return state.englishWordListCache;
+  }
+  const payload = await fetchJson("/api/english-shooter-words");
+  state.englishWordListCache = payload;
+  return payload;
+}
+
+function pushEnglishShooterSettings() {
+  if (!state.gameState || state.gameState.game_type !== "english_shooter") {
+    return;
+  }
+  if (!isHost(state.gameState)) {
+    return;
+  }
+  sendAction({ action: "update_settings", settings: collectEnglishShooterSettings() });
+}
+
+function englishEnemySpritePath(enemyName) {
+  const spriteMap = {
+    "Scout Slime": "/static/assets/english_shooter/scout-slime.svg",
+    "Armor Bat": "/static/assets/english_shooter/armor-bat.svg",
+    "Phantom Knight": "/static/assets/english_shooter/phantom-knight.svg",
+    "Storm Golem": "/static/assets/english_shooter/storm-golem.svg",
+    "Final Dragon": "/static/assets/english_shooter/final-dragon.svg",
+  };
+  return spriteMap[enemyName] || "";
+}
+
+function handleEnglishShooterExit(game = state.gameState) {
+  if (!game || game.game_type !== "english_shooter") {
+    return;
+  }
+  if (!game.started || game.game_over) {
+    leaveRoom();
+    return;
+  }
+  sendAction({ action: "resign" });
+}
+
+function updateEnglishShooterSettingsVisibility(mode) {
+  const hpField = document.getElementById("englishPlayerHpField");
+  if (!hpField) {
+    return;
+  }
+  hpField.classList.toggle("hidden", mode !== "versus");
+}
+
+function renderEnglishShooter(game) {
   const host = isHost(game);
-  const inProgress = game.started && !game.game_over;
-  const remaining = game.bid_timer_deadline ? Math.max(0, Math.floor(game.bid_timer_deadline - Date.now() / 1000)) : 0;
+  const translationSeconds = game.phase === "translation" && game.question_deadline
+    ? Math.max(0, Math.ceil(game.question_deadline - Date.now() / 1000))
+    : 0;
+  const translationTimedOut = game.phase === "translation" && translationSeconds <= 0;
+  const remainingSeconds = game.game_deadline
+    ? Math.max(0, Math.ceil(game.game_deadline - Date.now() / 1000))
+    : (game.remaining_seconds ?? 0);
+  const totalTimeSeconds = 60;
+  const translationLimit = Math.max(1, Number(game.translation_limit_seconds || 5));
+  const translationRatio = game.phase === "translation"
+    ? Math.max(0, Math.min(100, (translationSeconds / translationLimit) * 100))
+    : 0;
+  const battleRatio = Math.max(0, Math.min(100, (remainingSeconds / totalTimeSeconds) * 100));
+  const englishWord = game.current_prompt?.english || "-";
+  const maskedJapanese = game.current_prompt?.masked_japanese || "";
+  const japaneseWord = game.current_prompt?.primary_japanese || game.current_prompt?.revealed_japanese || "-";
+  const isTranslationPhase = game.phase === "translation" && !translationTimedOut;
+  const activeSymbols = game.active_symbols || [];
+  const activePlayers = activeSymbols.map((symbol) => game.players?.[symbol]).filter(Boolean);
+  const viewerPlayer = game.players?.[state.playerSymbol];
+  const opponent = activePlayers.find((player) => player.symbol !== state.playerSymbol) || activePlayers[1] || null;
+  const englishModeLabel = document.getElementById("englishModeLabel");
+  const englishSelfStatTitle = document.getElementById("englishSelfStatTitle");
+  const englishLeaderLabel = document.getElementById("englishLeaderLabel");
+  const startPanel = document.getElementById("englishStartPanel");
+  const rematchPanel = document.getElementById("englishRematchPanel");
+  const modeSelect = document.getElementById("englishModeSelect");
+  const playerHpInput = document.getElementById("englishPlayerHpInput");
+  const startButton = document.getElementById("englishStartButton");
+  const answerInput = document.getElementById("englishAnswerInput");
+  const submitButton = document.getElementById("englishSubmitButton");
+  const resignButton = document.getElementById("englishResignButton");
+  const timerLabel = document.getElementById("englishTimerLabel");
+  const stageLabel = document.getElementById("englishStageLabel");
+  const questionLabel = document.getElementById("englishQuestionLabel");
+  const damageLabel = document.getElementById("englishDamageLabel");
+  const enemyNameLabel = document.getElementById("englishEnemyNameLabel");
+  const enemySubLabel = document.getElementById("englishEnemySubLabel");
+  const enemyAvatar = document.getElementById("englishEnemyAvatar");
+  const hpFill = document.getElementById("englishHpFill");
+  const hpLabel = document.getElementById("englishHpLabel");
+  const selfHpWrap = document.getElementById("englishSelfHpWrap");
+  const selfHpFill = document.getElementById("englishSelfHpFill");
+  const selfHpValue = document.getElementById("englishSelfHpValue");
+  const selfHpLabel = document.getElementById("englishSelfHpLabel");
+  const battleTimerLabel = document.getElementById("englishBattleTimerLabel");
+  const battleTimerFill = document.getElementById("englishBattleTimerFill");
+  const wordLabel = document.getElementById("englishWordLabel");
+  const hintLabel = document.getElementById("englishHintLabel");
+  const revealLabel = document.getElementById("englishRevealLabel");
+  const promptSubLabel = document.getElementById("englishPromptSubLabel");
+  const questionStateLabel = document.getElementById("englishQuestionStateLabel");
+  const questionCountdownLabel = document.getElementById("englishQuestionCountdownLabel");
+  const questionMeterFill = document.getElementById("englishQuestionMeterFill");
+  const inputModeLabel = document.getElementById("englishInputModeLabel");
+  const comboLabel = document.getElementById("englishComboLabel");
+  const damageRuleLabel = document.getElementById("englishDamageRuleLabel");
+  const logPanel = document.getElementById("englishLogPanel");
+  const playersPanel = document.getElementById("englishPlayersPanel");
+  const wordListPanel = document.getElementById("englishWordListPanel");
+  const wordListCountLabel = document.getElementById("englishWordListCountLabel");
+  const wordListEntries = document.getElementById("englishWordListEntries");
+
+  startPanel.classList.toggle("hidden", (game.started && !game.game_over) || !host);
+  rematchPanel.classList.toggle("hidden", !game.game_over);
+  modeSelect.value = game.settings?.mode || "solo";
+  playerHpInput.value = String(game.settings?.player_hp || 20);
+  updateEnglishShooterSettingsVisibility(modeSelect.value);
+  modeSelect.disabled = game.started || !host;
+  playerHpInput.disabled = game.started || !host;
+  startButton.disabled = !host;
+  startButton.textContent = game.mode === "versus"
+    ? "対戦を開始"
+    : game.mode === "coop"
+      ? "協力を開始"
+      : "ソロ開始";
 
   turnLabelEl.textContent = game.game_over
     ? "ゲーム終了"
-    : game.awaiting_judge
-      ? "全員入札済み / ジャッジ待ち"
-      : game.started
-        ? `ラウンド ${game.round_number} / 出目 ${game.current_roll}`
-        : `開始待ち (${game.players_joined}/${game.max_players} 人参加中)`;
+    : game.started
+      ? `${game.mode_label} / 問題 ${game.question_number || 0}`
+      : `開始前 / ${game.mode_label}`;
 
-  auctionRoundLabelEl.textContent = game.round_number || "-";
-  auctionRollLabelEl.textContent = game.current_roll || "-";
-  auctionTrackLabelEl.textContent = game.track_length || game.settings.track_length || "-";
-  auctionBidTimerLabelEl.textContent = inProgress && !game.awaiting_judge ? `${remaining}秒` : "-";
-  bankBalanceLabelEl.textContent = myPlayer && myPlayer.balance_visible ? yen(myPlayer.balance) : "非公開";
+  englishModeLabel.textContent = game.mode_label || "-";
+  questionLabel.textContent = String(game.question_number || 0);
+  timerLabel.textContent = `${remainingSeconds}秒`;
+  englishLeaderLabel.textContent = game.top_attacker_name
+    ? `${game.top_attacker_name} (${game.top_attacker_damage || 0})`
+    : "-";
+  battleTimerLabel.textContent = `${remainingSeconds}秒`;
+  battleTimerFill.style.width = `${battleRatio}%`;
+  questionMeterFill.style.width = `${translationRatio}%`;
 
-  auctionStartPanelEl.classList.toggle("hidden", inProgress || game.game_over);
-  auctionRematchPanelEl.classList.toggle("hidden", !game.game_over);
-  auctionResultsPanelEl.classList.toggle("hidden", !game.game_over || game.results_revealed);
-  auctionReplayPanelEl.classList.toggle("hidden", !game.results_revealed);
-  auctionPlayersPanelBlockEl.classList.toggle("hidden", false);
-  auctionSettingsPanelEl.classList.toggle("hidden", !state.auctionSettingsOpen || inProgress || game.game_over);
-  auctionStartNoteEl.textContent = host
-    ? `現在 ${game.players_joined} 人参加中です。必要なら開始前に設定を変更できます。`
-    : "部屋を作った人が開始または設定変更するまで待ってください。";
-
-  if (!game.results_revealed) {
-    state.replayTurn = 0;
+  if (game.mode === "versus") {
+    const versusTargetHp = opponent?.max_hp
+      ? Math.max(0, Math.min(100, ((opponent.hp || 0) / opponent.max_hp) * 100))
+      : 0;
+    const selfHpPercent = viewerPlayer?.max_hp
+      ? Math.max(0, Math.min(100, ((viewerPlayer.hp || 0) / viewerPlayer.max_hp) * 100))
+      : 0;
+    enemyNameLabel.textContent = opponent?.name || "対戦相手";
+    enemySubLabel.textContent = `${opponent?.symbol || "-"} / HPバトル`;
+    enemyAvatar.className = "english-enemy-avatar sprite-frame boss";
+    enemyAvatar.innerHTML = "";
+    enemyAvatar.style.backgroundImage = "";
+    hpFill.style.width = `${versusTargetHp}%`;
+    hpLabel.textContent = `HP ${opponent?.hp ?? "-"} / ${opponent?.max_hp ?? "-"}`;
+    stageLabel.textContent = "PvP";
+    englishSelfStatTitle.textContent = "自分HP";
+    damageLabel.textContent = `${viewerPlayer?.hp ?? "-"} / ${viewerPlayer?.max_hp ?? "-"}`;
+    selfHpWrap.classList.remove("hidden");
+    selfHpFill.style.width = `${selfHpPercent}%`;
+    selfHpValue.textContent = `${viewerPlayer?.hp ?? "-"} / ${viewerPlayer?.max_hp ?? "-"}`;
+    selfHpLabel.textContent = "あなたのHP";
   } else {
-    state.replayTurn = Math.max(0, Math.min(state.replayTurn, (game.round_history || []).length));
+    const hpPercent = game.enemy_max_hp
+      ? Math.max(0, Math.min(100, (game.enemy_hp / game.enemy_max_hp) * 100))
+      : 0;
+    enemyNameLabel.textContent = game.enemy_name || "-";
+    enemySubLabel.textContent = `${game.enemy_jp_name || "-"}${game.is_boss ? " / BOSS" : ""}`;
+    const spritePath = englishEnemySpritePath(game.enemy_name);
+    enemyAvatar.className = `english-enemy-avatar sprite-frame ${game.is_boss ? "boss" : ""}`;
+    enemyAvatar.innerHTML = spritePath
+      ? `<img src="${spritePath}" alt="${game.enemy_name || "enemy"}">`
+      : "";
+    enemyAvatar.style.backgroundImage = "";
+    hpFill.style.width = `${hpPercent}%`;
+    hpLabel.textContent = `HP ${game.enemy_hp} / ${game.enemy_max_hp}`;
+    stageLabel.textContent = `${game.enemy_index}/${game.enemy_total}`;
+    englishSelfStatTitle.textContent = "総ダメージ";
+    damageLabel.textContent = String(viewerPlayer?.total_damage || 0);
+    selfHpWrap.classList.add("hidden");
+    selfHpFill.style.width = "0%";
+    selfHpValue.textContent = "-";
+    selfHpLabel.textContent = "-";
   }
 
-  syncAuctionSettingsForm(game);
-  renderQuickBidButtons(game, myPlayer);
-  renderAuctionPlayers(game);
-  renderGoalRewards(game);
-  renderReplayPanel(game);
-  renderAuctionBoard(game);
-  renderAuctionLogs(game);
-}
+  revealLabel.classList.add("hidden");
+  revealLabel.textContent = "";
 
-function renderAuctionPlayers(game) {
-  auctionPlayersPanelEl.innerHTML = "";
-  for (const symbol of Object.keys(game.players)) {
-    const player = game.players[symbol];
+  if (isTranslationPhase) {
+    wordLabel.textContent = englishWord;
+    questionStateLabel.textContent = "日本語訳フェーズ";
+    questionCountdownLabel.textContent = `残り ${translationSeconds} 秒`;
+    hintLabel.textContent = maskedJapanese || "〇";
+    promptSubLabel.textContent = "5秒以内に日本語訳を入力してください。丸の数は日本語の文字数です。";
+  } else if (game.phase === "spelling" || translationTimedOut) {
+    wordLabel.textContent = `${englishWord} / ${japaneseWord}`;
+    questionStateLabel.textContent = "英単語タイピング";
+    questionCountdownLabel.textContent = "日本語を表示中";
+    hintLabel.textContent = japaneseWord;
+    promptSubLabel.textContent = "5秒経過しました。ここからは英単語そのものを打ってください。";
+  } else {
+    wordLabel.textContent = englishWord;
+    questionStateLabel.textContent = game.started ? "進行中" : "開始前";
+    questionCountdownLabel.textContent = "-";
+    hintLabel.textContent = maskedJapanese || "〇";
+    promptSubLabel.textContent = game.winner_text || game.message || "開始前にモードとHPを調整できます。";
+  }
+
+  inputModeLabel.textContent = isTranslationPhase ? "日本語訳を入力" : "英単語を入力";
+  comboLabel.textContent = `${viewerPlayer?.combo || 0} 連続`;
+  damageRuleLabel.textContent = game.mode === "versus"
+    ? `日本語訳 ${game.damage_values?.direct || 5}+連続 / 英単語 ${game.damage_values?.spelling || 1} / 相手HPを削る`
+    : `日本語訳 ${game.damage_values?.direct || 5}+連続 / 英単語 ${game.damage_values?.spelling || 1} / 撃破 +${game.defeat_bonus_seconds || 0}秒`;
+  answerInput.disabled = !game.started || game.game_over;
+  submitButton.disabled = !game.started || game.game_over;
+  resignButton.disabled = false;
+  resignButton.removeAttribute("disabled");
+  resignButton.style.pointerEvents = "auto";
+  resignButton.textContent = game.game_over ? "ルームを出る" : "終了する";
+  resignButton.onclick = () => handleEnglishShooterExit(game);
+  answerInput.placeholder = isTranslationPhase
+    ? "日本語訳を入力"
+    : "英単語を入力";
+
+  playersPanel.innerHTML = "";
+  for (const player of activePlayers) {
     const card = document.createElement("div");
-    card.className = `player-card seat-${symbol.toLowerCase()}`;
-    const labels = [];
-    if (symbol === state.playerSymbol) labels.push("あなた");
-    if (symbol === game.host_symbol) labels.push("部屋主");
-    if (player.locked_bid && !game.game_over) labels.push("入札済み");
-    if (player.placement) labels.push(`${player.placement}位`);
-
-    const balanceText = player.balance_visible ? yen(player.balance) : "非公開";
-    const deltaValue = player.last_delta == null ? null : player.last_delta;
-    const deltaText = deltaValue == null ? "-" : `${deltaValue >= 0 ? "+" : ""}${yen(deltaValue)}`;
-
+    card.className = `english-player-card ${player.symbol === state.playerSymbol ? "you" : ""}`;
+    const hpText = player.max_hp ? `HP ${player.hp} / ${player.max_hp}` : "HP -";
     card.innerHTML = `
-      <strong>${player.name} (${symbol})${labels.length ? ` / ${labels.join(" / ")}` : ""}</strong>
-      <div>コマ記号: ${symbol}</div>
-      <div>状態: ${statusLabel(player.status)}</div>
-      <div>位置: ${player.position} / ${game.track_length || "-"}</div>
-      <div>残高: ${balanceText}</div>
-      <div>前回の増減: ${deltaText}</div>
-      <div>接続: ${player.connected ? "接続中" : "オフライン"}</div>
+      <strong>${player.name}</strong>
+      <span>${player.symbol === state.playerSymbol ? "あなた" : player.symbol}</span>
+      <span>${hpText}</span>
+      <span>連続正解 ${player.combo || 0}</span>
     `;
-    auctionPlayersPanelEl.appendChild(card);
-  }
-}
-
-function renderGoalRewards(game) {
-  const rewards = (game.goal_rewards || [])
-    .map((item) => `${item.place}位 ${yen(item.reward)}`)
-    .join(" / ");
-  const nonGoalText = `${Math.max(2, Object.keys(game.players).length)}人戦では最下位にゴールボーナスなし`;
-  const blankText = `空きマス ${game.settings.blank_count}`;
-  const rangeText = `金額マス ${yen(game.settings.money_tile_min)}-${yen(game.settings.money_tile_max)} ランダム`;
-  const tapeText = game.tape_bonus_position != null
-    ? `先着テープ ${game.tape_bonus_position} マス目で ${yen(game.tape_bonus_value)}`
-    : `先着テープ ${yen(game.tape_bonus_value)}`;
-  const legendText = Object.entries(game.players || {})
-    .map(([symbol, player]) => `${symbol}=${player.name}`)
-    .join(" / ");
-  goalRewardBannerEl.textContent = `${tapeText} / ゴール報酬: ${rewards} / ${rangeText} / ${nonGoalText} / ${blankText} / ${legendText}`;
-}
-
-function tileMarkup(tile, index, game) {
-  if (index === 0) {
-    return `<span class="tile-main">スタート</span>`;
-  }
-  if (index === game.track_length) {
-    const rewards = (game.goal_rewards || []).slice(0, 3).map((item) => `${item.place}位 ${yen(item.reward)}`).join("<br>");
-    return `<span class="tile-main">ゴール</span><span class="tile-sub">${rewards}</span>`;
-  }
-  if (tile.kind === "tape") {
-    return `<span class="tile-main">先着テープ</span><span class="tile-sub">先着1名 ${yen(game.tape_bonus_value)}</span>`;
-  }
-  if (tile.kind === "plus") return `<span class="tile-main">青マス</span><span class="tile-sub">+${yen(tile.value)}</span>`;
-  if (tile.kind === "minus") return `<span class="tile-main">赤マス</span><span class="tile-sub">-${yen(Math.abs(tile.value))}</span>`;
-  if (tile.kind === "forward") return `<span class="tile-main">進むマス</span><span class="tile-sub">+${tile.value}マス</span>`;
-  if (tile.kind === "backward") return `<span class="tile-main">戻るマス</span><span class="tile-sub">-${Math.abs(tile.value)}マス</span>`;
-  return `<span class="tile-main">空きマス</span><span class="tile-sub">変化なし</span>`;
-}
-
-function renderAuctionBoard(game) {
-  auctionBoardEl.innerHTML = "";
-  const replayPositions = getReplayPositions(game);
-  const replayTapeClaimedBy = getReplayTapeClaimedBy(game);
-  const layout = buildSnakeLayout(game.track_length, game.track_columns || 6);
-  auctionBoardEl.style.setProperty("--snake-cols", layout.cols);
-  auctionBoardEl.style.setProperty("--snake-rows", layout.rows);
-
-  const piecesByPosition = new Map();
-  for (const symbol of Object.keys(game.players)) {
-    const pos = replayPositions[symbol] ?? game.players[symbol].position;
-    if (!piecesByPosition.has(pos)) piecesByPosition.set(pos, []);
-    piecesByPosition.get(pos).push(symbol);
+    playersPanel.appendChild(card);
   }
 
-  const tileElements = [];
-  for (let index = 0; index <= game.track_length; index += 1) {
-    const tile = game.board_tiles[index] || { kind: "blank", value: 0, label: "空き" };
-    const snakePos = layout.positions[index];
-    const tileEl = document.createElement("div");
-    tileEl.className = `track-tile kind-${tile.kind}`;
-    tileEl.style.gridColumn = String(snakePos.col + 1);
-    tileEl.style.gridRow = String(snakePos.row + 1);
+  renderSimpleLog(logPanel, game.battle_log || []);
 
-    if (tile.kind === "tape") {
-      tileEl.classList.add("tape-tile");
-      if (replayTapeClaimedBy) tileEl.classList.add("tape-claimed");
+  wordListPanel.classList.toggle("hidden", !state.englishWordListOpen);
+  if (state.englishWordListOpen && state.englishWordListCache) {
+    wordListCountLabel.textContent = `${state.englishWordListCache.count}語を収録しています。`;
+    wordListEntries.innerHTML = "";
+    for (const item of state.englishWordListCache.words) {
+      const row = document.createElement("div");
+      row.className = "english-word-list-item";
+      row.innerHTML = `<strong>${item.english}</strong><span>${item.japanese}</span>`;
+      wordListEntries.appendChild(row);
     }
-    if (tile.kind === "plus") tileEl.classList.add("kind-plus");
-    else if (tile.kind === "minus") tileEl.classList.add("kind-minus");
-    else if (tile.kind === "forward") tileEl.classList.add("kind-forward", "tile-forward");
-    else if (tile.kind === "backward") tileEl.classList.add("kind-backward", "tile-backward");
-
-    const badge = document.createElement("span");
-    badge.className = "tile-index";
-    badge.textContent = index;
-    tileEl.appendChild(badge);
-
-    const label = document.createElement("div");
-    label.className = "tile-label";
-    label.innerHTML = tileMarkup(tile, index, game);
-    tileEl.appendChild(label);
-
-    const pieces = document.createElement("div");
-    pieces.className = "tile-pieces";
-    for (const symbol of piecesByPosition.get(index) || []) {
-      const piece = document.createElement("div");
-      piece.className = `track-piece seat-${symbol.toLowerCase()} ${symbol === state.playerSymbol ? "is-you" : ""}`;
-      piece.textContent = symbol;
-      pieces.appendChild(piece);
-    }
-    tileEl.appendChild(pieces);
-    auctionBoardEl.appendChild(tileEl);
-    tileElements.push(tileEl);
   }
-  requestAnimationFrame(() => renderSnakeLines(tileElements));
 }
 
 function wordSpyTeamLabel(team) {
@@ -2074,21 +1998,15 @@ function renderWordSpyAssignments(game, host) {
     name.innerHTML = `<strong>${player.name}</strong><span>${symbol}</span>`;
     row.appendChild(name);
 
-    const canEditAssignment = host && (!game.started || game.game_over || assignment.role === "spy");
-    if (canEditAssignment) {
+    if (!game.started && host) {
       const select = document.createElement("select");
       select.className = "wordspy-assignment-select";
-      const options = game.started && !game.game_over
-        ? [
-            ["red:spy", "赤スパイ"],
-            ["blue:spy", "青スパイ"],
-          ]
-        : [
-            ["red:master", "赤マスター"],
-            ["red:spy", "赤スパイ"],
-            ["blue:master", "青マスター"],
-            ["blue:spy", "青スパイ"],
-          ];
+      const options = [
+        ["red:master", "赤マスター"],
+        ["red:spy", "赤スパイ"],
+        ["blue:master", "青マスター"],
+        ["blue:spy", "青スパイ"],
+      ];
       for (const [value, label] of options) {
         const option = document.createElement("option");
         option.value = value;
@@ -2190,9 +2108,6 @@ document.getElementById("resignButton").addEventListener("click", () => sendActi
 document.getElementById("mouseResetSelectionButton").addEventListener("click", () => {
   sendAction({ action: "resign" });
 });
-document.getElementById("mouseStartHumanButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "human" }));
-document.getElementById("mouseStartMouseButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "mouse" }));
-document.getElementById("mouseStartRandomButton").addEventListener("click", () => sendAction({ action: "set_start_player", start_choice: "random" }));
 document.getElementById("mouseRematchButton").addEventListener("click", () => {
   sendAction({ action: "rematch" });
 });
@@ -2224,6 +2139,46 @@ document.getElementById("morningJudgeButton").addEventListener("click", () => {
     morningWinnerPickerEl.querySelectorAll("input[type='checkbox']:checked"),
   ).map((input) => input.value);
   sendAction({ action: "choose_winners", winner_symbols: checked });
+});
+document.getElementById("englishModeSelect").addEventListener("change", (event) => {
+  updateEnglishShooterSettingsVisibility(event.target.value);
+  pushEnglishShooterSettings();
+});
+document.getElementById("englishPlayerHpInput").addEventListener("change", () => {
+  pushEnglishShooterSettings();
+});
+document.getElementById("englishStartButton").addEventListener("click", () => {
+  pushEnglishShooterSettings();
+  sendAction({ action: "start_match" });
+});
+document.getElementById("englishWordListButton").addEventListener("click", async () => {
+  state.englishWordListOpen = !state.englishWordListOpen;
+  if (state.englishWordListOpen) {
+    try {
+      await loadEnglishShooterWords();
+    } catch (error) {
+      messageLabelEl.textContent = error.message;
+      state.englishWordListOpen = false;
+    }
+  }
+  render();
+});
+document.getElementById("englishWordListCloseButton").addEventListener("click", () => {
+  state.englishWordListOpen = false;
+  render();
+});
+document.getElementById("englishRematchButton").addEventListener("click", () => sendAction({ action: "rematch" }));
+document.getElementById("englishSubmitButton").addEventListener("click", () => {
+  sendAction({
+    action: "submit_answer",
+    answer_text: document.getElementById("englishAnswerInput").value.trim(),
+  });
+  document.getElementById("englishAnswerInput").value = "";
+});
+document.getElementById("englishAnswerInput").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  document.getElementById("englishSubmitButton").click();
 });
 document.getElementById("replayPrevButton").addEventListener("click", () => {
   state.replayTurn = Math.max(0, state.replayTurn - 1);
@@ -2263,7 +2218,7 @@ window.setInterval(() => {
   if (state.gameState?.game_type === "morning_answer" && !state.gameState.paused && state.gameState.phase === "writing") {
     render();
   }
-  if (state.gameState?.game_type === "auction_race" && state.gameState.started && !state.gameState.game_over && !state.gameState.awaiting_judge) {
+  if (state.gameState?.game_type === "english_shooter" && state.gameState.started && !state.gameState.game_over) {
     render();
   }
 }, 1000);

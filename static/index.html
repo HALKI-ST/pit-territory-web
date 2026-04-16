@@ -506,6 +506,162 @@
           </div>
         </aside>
       </div>
+
+      <div id="englishShooterView" class="arena hidden">
+        <div class="board-wrap english-board-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>モード</span>
+              <strong id="englishModeLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>ステージ</span>
+              <strong id="englishStageLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>問題数</span>
+              <strong id="englishQuestionLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>残り時間</span>
+              <strong id="englishTimerLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span id="englishSelfStatTitle">総ダメージ</span>
+              <strong id="englishDamageLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>攻撃トップ</span>
+              <strong id="englishLeaderLabel">-</strong>
+            </div>
+          </div>
+
+          <div class="english-battle-card">
+            <div class="english-enemy-panel">
+              <div>
+                <p class="eyebrow">Enemy</p>
+                <h3 id="englishEnemyNameLabel">-</h3>
+                <p id="englishEnemySubLabel" class="microcopy">-</p>
+              </div>
+              <div id="englishEnemyAvatar" class="english-enemy-avatar"></div>
+            </div>
+
+            <div class="english-hp-wrap">
+              <div class="english-hp-bar">
+                <div id="englishHpFill" class="english-hp-fill"></div>
+              </div>
+              <p id="englishHpLabel" class="microcopy">-</p>
+            </div>
+
+            <div id="englishSelfHpWrap" class="english-hp-wrap hidden">
+              <div class="english-hp-head">
+                <span class="eyebrow">Your HP</span>
+                <strong id="englishSelfHpValue">-</strong>
+              </div>
+              <div class="english-hp-bar self">
+                <div id="englishSelfHpFill" class="english-hp-fill self"></div>
+              </div>
+              <p id="englishSelfHpLabel" class="microcopy">-</p>
+            </div>
+
+            <div class="english-battle-timer-wrap">
+              <div class="english-battle-timer-head">
+                <span class="eyebrow">Battle Time</span>
+                <strong id="englishBattleTimerLabel">-</strong>
+              </div>
+              <div class="english-battle-timer-bar">
+                <div id="englishBattleTimerFill" class="english-battle-timer-fill"></div>
+              </div>
+            </div>
+
+            <div class="english-question-card">
+              <p class="eyebrow">Question</p>
+              <div class="english-question-head">
+                <div id="englishQuestionStateLabel" class="english-question-state">-</div>
+                <div id="englishQuestionCountdownLabel" class="english-question-countdown">-</div>
+              </div>
+              <div class="english-question-meter">
+                <div id="englishQuestionMeterFill" class="english-question-meter-fill"></div>
+              </div>
+              <div id="englishWordLabel" class="english-word">-</div>
+              <div id="englishHintLabel" class="english-hint">-</div>
+              <div id="englishRevealLabel" class="english-reveal-label hidden">-</div>
+              <p id="englishPromptSubLabel" class="microcopy">-</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="englishStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <div class="english-settings-grid">
+              <label class="field">
+                <span>モード</span>
+                <select id="englishModeSelect">
+                  <option value="solo">ソロ</option>
+                  <option value="versus">対戦</option>
+                  <option value="coop">協力</option>
+                </select>
+              </label>
+              <label id="englishPlayerHpField" class="field">
+                <span>プレイヤーHP</span>
+                <input id="englishPlayerHpInput" type="number" min="5" max="200" step="1" value="20">
+              </label>
+            </div>
+            <button id="englishStartButton" class="primary">ゲーム開始</button>
+            <p class="microcopy">5秒以内は日本語訳、5秒後は表示された日本語を見て英単語を打ちます。対戦と協力は2人必要です。</p>
+          </div>
+
+          <div id="englishRematchPanel" class="panel-block hidden">
+            <p class="eyebrow">次のゲーム</p>
+            <button id="englishRematchButton" class="primary">モード選択へ戻る</button>
+            <p class="microcopy">このルームのまま設定画面へ戻り、別モードや別HPで始められます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">入力</p>
+            <label class="field">
+              <span id="englishInputModeLabel">答え</span>
+              <input id="englishAnswerInput" maxlength="40" placeholder="ここに入力">
+            </label>
+            <div class="action-grid">
+              <button id="englishSubmitButton" class="primary">攻撃する</button>
+              <button id="englishResignButton" class="danger">終了する</button>
+            </div>
+            <button id="englishWordListButton">単語一覧を見る</button>
+            <p class="microcopy">5秒以内の日本語訳正解で5ダメージ、時間切れ後の英単語正解で1ダメージです。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">戦況</p>
+            <div class="english-score-grid">
+              <div class="stat-chip">
+                <span>連続正解</span>
+                <strong id="englishComboLabel">-</strong>
+              </div>
+              <div class="stat-chip">
+                <span>攻撃性能</span>
+                <strong id="englishDamageRuleLabel">-</strong>
+              </div>
+            </div>
+            <div id="englishPlayersPanel" class="english-players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">バトルログ</p>
+            <div id="englishLogPanel" class="log-panel"></div>
+          </div>
+
+          <div id="englishWordListPanel" class="panel-block hidden">
+            <div class="english-word-list-head">
+              <p class="eyebrow">学習用単語一覧</p>
+              <button id="englishWordListCloseButton">閉じる</button>
+            </div>
+            <p id="englishWordListCountLabel" class="microcopy">-</p>
+            <div id="englishWordListEntries" class="english-word-list"></div>
+          </div>
+        </aside>
+      </div>
     </section>
   </main>
 

@@ -179,12 +179,14 @@ body {
 
 input,
 textarea,
+select,
 button {
   font: inherit;
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 13px 14px;
   border-radius: 14px;
@@ -405,6 +407,417 @@ button.danger {
   font-weight: 700;
   background: linear-gradient(135deg, rgba(13, 98, 143, 0.95), rgba(47, 135, 175, 0.95));
   color: white;
+}
+
+.english-board-wrap {
+  display: grid;
+  gap: 18px;
+}
+
+.english-topline {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.english-battle-card {
+  display: grid;
+  gap: 18px;
+  padding: 26px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(0, 255, 209, 0.04), transparent 24%),
+    radial-gradient(circle at top left, rgba(83, 226, 255, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(91, 125, 255, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(6, 18, 31, 0.98), rgba(13, 35, 58, 0.96));
+  color: #e7f7ff;
+  min-height: 420px;
+  border: 1px solid rgba(97, 224, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(20, 199, 255, 0.08),
+    0 24px 50px rgba(6, 11, 20, 0.36);
+  position: relative;
+  overflow: hidden;
+}
+
+.english-battle-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(130, 216, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(130, 216, 255, 0.04) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.english-enemy-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.english-enemy-panel h3 {
+  margin: 6px 0 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+.english-enemy-panel .microcopy,
+.english-question-card .microcopy {
+  color: rgba(213, 240, 255, 0.82);
+}
+
+.english-enemy-avatar {
+  width: 136px;
+  height: 136px;
+  border-radius: 34px 34px 30px 30px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 223, 125, 0.95), rgba(207, 86, 52, 0.92) 42%, rgba(56, 14, 16, 0.98) 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  position: relative;
+  border: 2px solid rgba(255, 246, 220, 0.12);
+}
+
+.english-enemy-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+}
+
+.english-enemy-avatar.sprite-frame {
+  background:
+    radial-gradient(circle at top, rgba(138, 248, 255, 0.22), transparent 52%),
+    linear-gradient(145deg, rgba(7, 22, 39, 0.98), rgba(18, 46, 72, 0.96));
+  border: 2px solid rgba(109, 227, 255, 0.32);
+  box-shadow:
+    inset 0 0 0 1px rgba(141, 236, 255, 0.08),
+    0 18px 40px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.english-enemy-avatar.sprite-frame::before,
+.english-enemy-avatar.sprite-frame::after {
+  content: none;
+}
+
+.english-enemy-avatar::before,
+.english-enemy-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.english-enemy-avatar::before {
+  background:
+    linear-gradient(135deg, transparent 0 38%, rgba(44, 8, 8, 0.96) 39% 58%, transparent 59%) 14px 4px / 36px 28px no-repeat,
+    linear-gradient(225deg, transparent 0 38%, rgba(44, 8, 8, 0.96) 39% 58%, transparent 59%) 86px 4px / 36px 28px no-repeat,
+    radial-gradient(circle at 0 50%, transparent 0 58%, rgba(32, 7, 7, 0.94) 59% 100%) 22px 28px / 40px 30px no-repeat,
+    radial-gradient(circle at 100% 50%, transparent 0 58%, rgba(32, 7, 7, 0.94) 59% 100%) 74px 28px / 40px 30px no-repeat,
+    radial-gradient(circle, #fff5f2 0 30%, transparent 31%) 34px 42px / 18px 18px no-repeat,
+    radial-gradient(circle, #fff5f2 0 30%, transparent 31%) 84px 42px / 18px 18px no-repeat,
+    radial-gradient(circle, #23090a 0 46%, transparent 47%) 38px 46px / 10px 10px no-repeat,
+    radial-gradient(circle, #23090a 0 46%, transparent 47%) 88px 46px / 10px 10px no-repeat;
+}
+
+.english-enemy-avatar::after {
+  background:
+    radial-gradient(circle at 50% 0, rgba(34, 7, 8, 0.94) 0 76%, transparent 77%) 30px 78px / 76px 34px no-repeat,
+    linear-gradient(to bottom, transparent 0 30%, #fff2dd 31% 100%) 42px 92px / 8px 16px no-repeat,
+    linear-gradient(to bottom, transparent 0 30%, #fff2dd 31% 100%) 56px 94px / 8px 14px no-repeat,
+    linear-gradient(to bottom, transparent 0 30%, #fff2dd 31% 100%) 72px 94px / 8px 14px no-repeat,
+    linear-gradient(to bottom, transparent 0 30%, #fff2dd 31% 100%) 86px 92px / 8px 16px no-repeat;
+}
+
+.english-enemy-avatar.boss {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 194, 194, 0.98), rgba(148, 29, 83, 0.92) 44%, rgba(32, 4, 34, 0.98) 100%);
+}
+
+.english-enemy-avatar.boss::before {
+  background:
+    linear-gradient(135deg, transparent 0 34%, rgba(26, 0, 17, 0.98) 35% 56%, transparent 57%) 8px -2px / 48px 42px no-repeat,
+    linear-gradient(225deg, transparent 0 34%, rgba(26, 0, 17, 0.98) 35% 56%, transparent 57%) 80px -2px / 48px 42px no-repeat,
+    radial-gradient(circle at 0 50%, transparent 0 58%, rgba(20, 0, 15, 0.95) 59% 100%) 20px 26px / 42px 34px no-repeat,
+    radial-gradient(circle at 100% 50%, transparent 0 58%, rgba(20, 0, 15, 0.95) 59% 100%) 74px 26px / 42px 34px no-repeat,
+    radial-gradient(circle, #fff5f2 0 32%, transparent 33%) 32px 40px / 20px 20px no-repeat,
+    radial-gradient(circle, #fff5f2 0 32%, transparent 33%) 84px 40px / 20px 20px no-repeat,
+    radial-gradient(circle, #20000f 0 48%, transparent 49%) 37px 45px / 10px 10px no-repeat,
+    radial-gradient(circle, #20000f 0 48%, transparent 49%) 89px 45px / 10px 10px no-repeat;
+}
+
+.english-enemy-avatar.boss::after {
+  background:
+    radial-gradient(circle at 50% 0, rgba(24, 0, 13, 0.96) 0 78%, transparent 79%) 24px 76px / 88px 40px no-repeat,
+    linear-gradient(to bottom, transparent 0 28%, #fff2dd 29% 100%) 36px 90px / 9px 19px no-repeat,
+    linear-gradient(to bottom, transparent 0 28%, #fff2dd 29% 100%) 50px 96px / 9px 13px no-repeat,
+    linear-gradient(to bottom, transparent 0 28%, #fff2dd 29% 100%) 64px 97px / 9px 12px no-repeat,
+    linear-gradient(to bottom, transparent 0 28%, #fff2dd 29% 100%) 79px 96px / 9px 13px no-repeat,
+    linear-gradient(to bottom, transparent 0 28%, #fff2dd 29% 100%) 93px 90px / 9px 19px no-repeat;
+}
+
+.english-hp-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.english-hp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.english-hp-head strong {
+  color: #9fe9ff;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.english-hp-bar {
+  width: 100%;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(20, 42, 62, 0.88);
+  overflow: hidden;
+  border: 1px solid rgba(86, 209, 255, 0.18);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.22);
+}
+
+.english-hp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #70f2ff, #3c82ff 60%, #9566ff);
+  transition: width 180ms ease;
+  box-shadow: 0 0 18px rgba(90, 214, 255, 0.34);
+}
+
+.english-hp-bar.self {
+  border-color: rgba(133, 245, 189, 0.24);
+}
+
+.english-hp-fill.self {
+  background: linear-gradient(90deg, #8cf9b8, #3ddca5 58%, #1f9d8f);
+  box-shadow: 0 0 18px rgba(92, 243, 183, 0.32);
+}
+
+.english-battle-timer-wrap {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(10, 26, 42, 0.72);
+  border: 1px solid rgba(96, 223, 255, 0.14);
+}
+
+.english-battle-timer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.english-battle-timer-head strong {
+  color: #9fe9ff;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.english-battle-timer-bar {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(7, 15, 28, 0.88);
+  border: 1px solid rgba(96, 223, 255, 0.16);
+  overflow: hidden;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.28);
+}
+
+.english-battle-timer-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7ef7ff 0%, #4ec9ff 40%, #ffd05f 78%, #ff735f 100%);
+  box-shadow: 0 0 20px rgba(95, 221, 255, 0.38);
+  transition: width 180ms linear;
+}
+
+.english-question-card {
+  position: relative;
+  padding: 22px;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(11, 29, 46, 0.94), rgba(8, 20, 34, 0.96));
+  border: 1px solid rgba(96, 223, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(45, 158, 204, 0.08);
+  overflow: hidden;
+}
+
+.english-question-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(90, 214, 255, 0.06), transparent 35%),
+    linear-gradient(rgba(255, 255, 255, 0.02), transparent);
+  pointer-events: none;
+}
+
+.english-question-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.english-question-state,
+.english-question-countdown {
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.english-question-state {
+  background: rgba(72, 201, 255, 0.14);
+  color: #9fe9ff;
+  border: 1px solid rgba(96, 223, 255, 0.18);
+}
+
+.english-question-countdown {
+  background: linear-gradient(135deg, rgba(255, 184, 90, 0.95), rgba(255, 98, 98, 0.95));
+  color: #2e130a;
+  border: 1px solid rgba(255, 232, 189, 0.26);
+}
+
+.english-question-meter {
+  position: relative;
+  height: 14px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(7, 15, 28, 0.88);
+  border: 1px solid rgba(96, 223, 255, 0.16);
+  overflow: hidden;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.28);
+}
+
+.english-question-meter-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #7ef7ff 0%, #46c8ff 45%, #ffb44a 85%, #ff6d5e 100%);
+  box-shadow: 0 0 20px rgba(95, 221, 255, 0.38);
+  transition: width 180ms linear;
+}
+
+.english-word {
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin: 4px 0 12px;
+  text-shadow: 0 0 18px rgba(85, 215, 255, 0.22);
+  color: #f3fbff;
+}
+
+.english-hint {
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  color: #8fe9ff;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(74, 199, 255, 0.08);
+  border: 1px solid rgba(96, 223, 255, 0.18);
+}
+
+.english-reveal-label {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 194, 90, 0.16), rgba(255, 121, 85, 0.12));
+  border: 1px solid rgba(255, 188, 99, 0.28);
+  color: #ffdba8;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 18px rgba(255, 137, 78, 0.08);
+  white-space: pre-line;
+}
+
+.english-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.english-score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.english-players-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.english-word-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.english-word-list {
+  max-height: 360px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.english-word-list-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(118, 109, 96, 0.18);
+  display: grid;
+  gap: 4px;
+}
+
+.english-word-list-item strong {
+  color: #15314c;
+}
+
+.english-player-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(118, 109, 96, 0.22);
+  display: grid;
+  gap: 4px;
+}
+
+.english-player-card.you {
+  outline: 3px solid rgba(12, 92, 134, 0.18);
+}
+
+#englishPromptSubLabel {
+  margin-top: 12px;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: rgba(215, 240, 255, 0.86);
 }
 
 #dirUpButton {

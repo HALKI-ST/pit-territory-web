@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   const root = document.getElementById("grandGameView");
   if (!root) return;
 

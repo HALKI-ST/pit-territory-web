@@ -4070,10 +4070,14 @@ button.danger {
 
 .grand2-flag {
   position: absolute;
-  left: 4px;
-  bottom: 2px;
-  font-size: 10px;
-  font-weight: 700;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -52%);
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 800;
+  z-index: 1;
+  text-shadow: 0 1px 0 rgba(15, 19, 18, 0.55);
 }
 
 .grand2-team-A {
@@ -4082,6 +4086,14 @@ button.danger {
 
 .grand2-team-B {
   color: #ea6d52;
+}
+
+.grand2-flag.team-a {
+  color: #7fd0ff;
+}
+
+.grand2-flag.team-b {
+  color: #ff9c73;
 }
 
 .grand2-board-cell.team-a::after,
@@ -4094,11 +4106,16 @@ button.danger {
 }
 
 .grand2-board-cell.team-a::after {
-  background: rgba(47, 156, 230, 0.12);
+  background: rgba(47, 156, 230, 0.24);
 }
 
 .grand2-board-cell.team-b::after {
-  background: rgba(234, 109, 82, 0.12);
+  background: rgba(234, 109, 82, 0.24);
+}
+
+.grand2-board-cell.is-current-actor::after {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 2px rgba(255, 246, 182, 0.9);
 }
 
 .grand2-unit-sprite {
@@ -4107,6 +4124,14 @@ button.danger {
   width: 76%;
   height: 76%;
   object-fit: contain;
+  z-index: 2;
+}
+
+.grand2-board-cell.is-current-actor .grand2-unit-sprite {
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  filter: drop-shadow(0 0 3px rgba(255, 246, 182, 0.75));
 }
 
 .grand2-battle-actor {
@@ -4142,6 +4167,7 @@ button.danger {
   position: relative;
   min-width: 0;
   min-height: 0;
+  aspect-ratio: 1 / 1;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.02);
 }
@@ -4167,6 +4193,14 @@ button.danger {
 .grand2-mini-unit.team-b,
 .grand2-mini-flag.team-b {
   color: #ea6d52;
+}
+
+.grand2-mini-unit.is-focus {
+  inset: 8%;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.96),
+    0 0 0 3px currentColor;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .grand2-mini-cell.is-focus {

@@ -326,22 +326,31 @@
     const boardSize = Number(game.board_size || 50);
     const group = 2;
     const miniSize = Math.ceil(boardSize / group);
-    const walls = wallsSet(game);
+    const knownFloor = new Set((game.known_floor || []).map((cell) => `${cell[0]},${cell[1]}`));
+    const knownWalls = new Set((game.known_walls || []).map((cell) => `${cell[0]},${cell[1]}`));
+    const visibleCells = new Set((game.visible_cells || []).map((cell) => `${cell[0]},${cell[1]}`));
     const flags = Object.values(game.flags || {}).filter((flag) => flag?.alive);
     const units = Object.values(game.units || {}).filter((unit) => unit?.alive);
+    const activeActorId = game.viewer_actor_id || "";
 
     const cells = [];
     for (let my = 0; my < miniSize; my += 1) {
       for (let mx = 0; mx < miniSize; mx += 1) {
+        let hasKnownFloor = false;
+        let hasVisible = false;
         let hasWall = false;
         let hasFlagA = false;
         let hasFlagB = false;
         let hasUnitA = false;
         let hasUnitB = false;
+        let hasFocusA = false;
+        let hasFocusB = false;
         for (let y = my * group; y < Math.min(boardSize, (my + 1) * group); y += 1) {
           for (let x = mx * group; x < Math.min(boardSize, (mx + 1) * group); x += 1) {
             const key = `${x},${y}`;
-            if (walls.has(key)) hasWall = true;
+            if (knownFloor.has(key)) hasKnownFloor = true;
+            if (visibleCells.has(key)) hasVisible = true;
+            if (knownWalls.has(key)) hasWall = true;
             flags.forEach((flag) => {
               if (flag.cell[0] === x && flag.cell[1] === y) {
                 if (flag.team === "A") hasFlagA = true;
@@ -352,18 +361,22 @@
               if (unit.cell[0] === x && unit.cell[1] === y) {
                 if (unit.team === "A") hasUnitA = true;
                 if (unit.team === "B") hasUnitB = true;
+                if (unit.id === activeActorId && unit.team === "A") hasFocusA = true;
+                if (unit.id === activeActorId && unit.team === "B") hasFocusB = true;
               }
             });
           }
         }
         const classes = ["grand2-mini-cell"];
+        if (hasKnownFloor) classes.push("is-floor");
+        if (hasVisible) classes.push("is-visible");
         if (hasWall) classes.push("is-wall");
         cells.push(`
           <div class="${classes.join(" ")}">
             ${hasFlagA ? '<span class="grand2-mini-flag team-a"></span>' : ""}
             ${hasFlagB ? '<span class="grand2-mini-flag team-b"></span>' : ""}
-            ${hasUnitA ? '<span class="grand2-mini-unit team-a"></span>' : ""}
-            ${hasUnitB ? '<span class="grand2-mini-unit team-b"></span>' : ""}
+            ${hasUnitA ? `<span class="grand2-mini-unit team-a ${hasFocusA ? "is-focus" : ""}"></span>` : ""}
+            ${hasUnitB ? `<span class="grand2-mini-unit team-b ${hasFocusB ? "is-focus" : ""}"></span>` : ""}
           </div>
         `);
       }
@@ -398,10 +411,11 @@
         path.has(key) ? "is-path" : "",
         reachable.has(key) ? "is-reachable" : "",
         unit ? `team-${String(unit.team).toLowerCase()}` : "",
+        actor && unit && unit.id === actor.id ? "is-current-actor" : "",
       ].filter(Boolean).join(" ");
       return `
         <button type="button" class="${classes}" data-grand-cell="${cell[0]},${cell[1]}" ${reachable.has(key) ? "" : "disabled"}>
-          ${flag ? `<span class="grand2-flag team-${String(flag.team).toLowerCase()}"></span>` : ""}
+          ${flag ? `<span class="grand2-flag team-${String(flag.team).toLowerCase()}">⚑</span>` : ""}
           ${unit ? `<img src="${spritePath(unit.character_key)}" alt="${escapeHtml(unit.name)}" class="grand2-unit-sprite">` : ""}
         </button>
       `;
@@ -428,7 +442,7 @@
               <img src="${spritePath(actor.character_key)}" alt="${escapeHtml(actor.name)}" class="grand2-battle-actor-image">
               <div>
                 <h3>${escapeHtml(characterLabel(actor))}</h3>
-                <p class="grand2-copy">HP ${actor.hp}/${actor.power} / 行動力 ${actor.move} / 探知力 ${actor.vision} / コスト ${actor.cost}</p>
+                <p class="grand2-copy">HP ${actor.hp}/${actor.max_hp} / 行動力 ${actor.move} / 探知力 ${actor.vision} / コスト ${actor.cost}</p>
               </div>
             </div>
           ` : `<p class="grand2-copy">行動できるキャラがいません。</p>`}

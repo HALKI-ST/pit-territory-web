@@ -368,7 +368,10 @@
         `);
       }
     }
-    return cells.join("");
+    return {
+      size: miniSize,
+      html: cells.join(""),
+    };
   }
 
   function renderBattle(game) {
@@ -386,8 +389,10 @@
       const key = `${cell[0]},${cell[1]}`;
       const unit = units.get(key);
       const flag = flags.get(key);
+      const floorClass = (cell[0] + cell[1]) % 2 === 0 ? "is-floor-a" : "is-floor-b";
       const classes = [
         "grand2-board-cell",
+        floorClass,
         visible.has(key) ? "is-visible" : "is-hidden",
         walls.has(key) ? "is-wall" : "",
         path.has(key) ? "is-path" : "",
@@ -401,6 +406,8 @@
         </button>
       `;
     }).join("");
+
+    const minimap = buildMinimap(game);
 
     root.innerHTML = `
       <div class="grand2-phase grand2-battle-layout">
@@ -437,7 +444,7 @@
           <p class="grand2-copy">今回は移動のみの最小戦闘ループです。技は次の段階で本編へ戻します。</p>
           <p class="grand2-eyebrow">全体マップ</p>
           <div class="grand2-mini-wrap">
-            <div class="grand2-mini-board">${buildMinimap(game)}</div>
+            <div class="grand2-mini-board" style="--mini-size:${minimap.size};">${minimap.html}</div>
           </div>
           <div class="grand2-mini-legend">
             <span><i class="team-a"></i>青ユニット</span>

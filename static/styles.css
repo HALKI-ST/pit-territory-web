@@ -3966,6 +3966,35 @@ button.danger {
   grid-template-columns: 1.3fr 0.9fr;
 }
 
+.grand2-board-wrap {
+  margin-top: 16px;
+}
+
+.grand2-battle-head {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.grand2-battle-head > div {
+  border: 1px solid rgba(34, 36, 37, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+}
+
+.grand2-battle-head span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.grand2-battle-head strong {
+  display: block;
+  line-height: 1.4;
+}
+
 .grand2-board {
   display: grid;
   grid-template-columns: repeat(15, minmax(0, 1fr));
@@ -4055,6 +4084,31 @@ button.danger {
   color: #ea6d52;
 }
 
+.grand2-board-cell.team-a::after,
+.grand2-board-cell.team-b::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.grand2-board-cell.team-a::after {
+  background: rgba(47, 156, 230, 0.12);
+}
+
+.grand2-board-cell.team-b::after {
+  background: rgba(234, 109, 82, 0.12);
+}
+
+.grand2-unit-sprite {
+  position: absolute;
+  inset: 12%;
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+}
+
 .grand2-battle-actor {
   display: grid;
   grid-template-columns: 96px 1fr;
@@ -4071,20 +4125,48 @@ button.danger {
 
 .grand2-mini-board {
   display: grid;
+  grid-template-columns: repeat(var(--mini-size, 25), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--mini-size, 25), minmax(0, 1fr));
   gap: 1px;
   background: #49534a;
   border-radius: 18px;
-  padding: 8px;
-  width: 220px;
-  max-width: 220px;
+  padding: 6px;
+  width: 176px;
+  height: 176px;
+  max-width: 176px;
   margin: 0;
+  overflow: hidden;
 }
 
 .grand2-mini-cell {
   position: relative;
-  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.grand2-mini-unit,
+.grand2-mini-flag {
+  position: absolute;
+  inset: 24%;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.grand2-mini-flag {
+  inset: 16%;
+  border-radius: 3px;
+}
+
+.grand2-mini-unit.team-a,
+.grand2-mini-flag.team-a {
+  color: #2f9ce6;
+}
+
+.grand2-mini-unit.team-b,
+.grand2-mini-flag.team-b {
+  color: #ea6d52;
 }
 
 .grand2-mini-cell.is-focus {
@@ -4128,7 +4210,7 @@ button.danger {
 
 .grand2-mini-wrap {
   overflow: auto;
-  max-width: 236px;
+  max-width: 192px;
   border-radius: 16px;
 }
 
@@ -4138,14 +4220,14 @@ button.danger {
   gap: 6px;
   margin-top: 8px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
 }
 
 .grand2-mini-legend span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 3px 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.64);
 }

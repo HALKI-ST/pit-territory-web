@@ -2,6 +2,9 @@ const state = {
   roomCode: "",
   playerToken: "",
   playerSymbol: "",
+  viewerRole: "player",
+  viewerName: "",
+  viewerFocusSymbol: "",
   selectedGameType: "",
   gameCategoryTab: "original",
   socket: null,
@@ -29,6 +32,7 @@ const wordSpyViewEl = document.getElementById("wordSpyView");
 const morningAnswerViewEl = document.getElementById("morningAnswerView");
 const englishShooterViewEl = document.getElementById("englishShooterView");
 const fiveRulerViewEl = document.getElementById("fiveRulerView");
+const grandGameViewEl = document.getElementById("grandGameView");
 const gameSelectEl = document.getElementById("gameSelect");
 const gameTitleLabelEl = document.getElementById("gameTitleLabel");
 const lobbyStatusEl = document.getElementById("lobbyStatus");
@@ -36,12 +40,14 @@ const roomCodeLabelEl = document.getElementById("roomCodeLabel");
 const turnLabelEl = document.getElementById("turnLabel");
 const messageLabelEl = document.getElementById("messageLabel");
 const winnerLabelEl = document.getElementById("winnerLabel");
+const grandSharedControlsEl = document.getElementById("grandSharedControls");
 const playersPanelEl = document.getElementById("playersPanel");
 const auctionPlayersPanelEl = document.getElementById("auctionPlayersPanel");
 const auctionPlayersPanelBlockEl = document.getElementById("auctionPlayersPanelBlock");
 const auctionLogPanelEl = document.getElementById("auctionLogPanel");
 const quickBidButtonsEl = document.getElementById("quickBidButtons");
 const youAreEl = document.getElementById("youAre");
+const sharedStatusEl = document.querySelector(".shared-status");
 const modeBannerEl = document.getElementById("modeBanner");
 const pitStartPanelEl = document.getElementById("pitStartPanel");
 const pitStartPanelNoteEl = document.getElementById("pitStartPanelNote");
@@ -122,6 +128,8 @@ const fiveRulerEls = {
   setLogPanel: document.getElementById("fiveRulerSetLogPanel"),
   turnLogPanel: document.getElementById("fiveRulerTurnLogPanel"),
   startButton: document.getElementById("fiveRulerStartButton"),
+  modeFullButton: document.getElementById("fiveRulerModeFullButton"),
+  modeIncrementalButton: document.getElementById("fiveRulerModeIncrementalButton"),
   submitPlanButton: document.getElementById("fiveRulerSubmitPlanButton"),
   submitTurnButton: document.getElementById("fiveRulerSubmitTurnButton"),
   resignButton: document.getElementById("fiveRulerResignButton"),
@@ -150,6 +158,46 @@ const settingEls = {
   goalRewards: document.getElementById("settingGoalRewards"),
   tileLayout: document.getElementById("settingTileLayout"),
 };
+
+let spectateRoomButtonEl = null;
+let spectatorSummaryEl = null;
+let viewerFocusBlockEl = null;
+let viewerFocusSelectEl = null;
+
+function ensureSpectatorUi() {
+  if (!spectateRoomButtonEl) {
+    const joinButton = document.getElementById("joinRoomButton");
+    spectateRoomButtonEl = document.createElement("button");
+    spectateRoomButtonEl.id = "spectateRoomButton";
+    spectateRoomButtonEl.type = "button";
+    spectateRoomButtonEl.textContent = "観戦する";
+    joinButton?.insertAdjacentElement("afterend", spectateRoomButtonEl);
+  }
+
+  if (!spectatorSummaryEl && youAreEl?.parentElement) {
+    spectatorSummaryEl = document.createElement("p");
+    spectatorSummaryEl.id = "spectatorSummary";
+    spectatorSummaryEl.className = "microcopy";
+    spectatorSummaryEl.textContent = "観戦者 0人";
+    youAreEl.parentElement.appendChild(spectatorSummaryEl);
+  }
+
+  if (!viewerFocusBlockEl && youAreEl?.parentElement) {
+    viewerFocusBlockEl = document.createElement("div");
+    viewerFocusBlockEl.id = "viewerFocusBlock";
+    viewerFocusBlockEl.className = "hidden";
+    viewerFocusBlockEl.innerHTML = `
+      <label class="field">
+        <span>観戦フォーカス</span>
+        <select id="viewerFocusSelect"></select>
+      </label>
+    `;
+    youAreEl.parentElement.appendChild(viewerFocusBlockEl);
+    viewerFocusSelectEl = viewerFocusBlockEl.querySelector("#viewerFocusSelect");
+  }
+}
+
+ensureSpectatorUi();
 
 function playerName() {
   return document.getElementById("nameInput").value.trim();
@@ -194,6 +242,84 @@ function statusLabel(status) {
 
 function isHost(game) {
   return Boolean(game) && game.host_symbol === state.playerSymbol;
+}
+
+function isSpectator(game = state.gameState) {
+  return (game?.viewer_role || state.viewerRole) === "spectator";
+}
+
+function focusSymbol(game = state.gameState) {
+  if (!game) {
+    return "";
+  }
+  const requested = state.viewerFocusSymbol;
+  if (requested && game.players?.[requested]) {
+    return requested;
+  }
+  return state.playerSymbol;
+}
+
+function currentViewerPlayerState() {
+  if (!state.gameState) {
+    return null;
+  }
+  return state.gameState.players?.[focusSymbol()] || null;
+}
+
+function isFocusedPlayer(symbol) {
+  if (!symbol) {
+    return false;
+  }
+  if (isSpectator()) {
+    return focusSymbol() === symbol && Boolean(state.viewerFocusSymbol);
+  }
+  return state.playerSymbol === symbol;
+}
+
+function applySpectatorVisibility(game) {
+  if (!spectatorSummaryEl) {
+    return;
+  }
+  const names = game?.spectators || [];
+  spectatorSummaryEl.textContent = names.length > 0
+    ? `観戦者 ${names.length}人: ${names.join(" / ")}`
+    : "観戦者 0人";
+
+  if (!viewerFocusBlockEl || !viewerFocusSelectEl) {
+    return;
+  }
+
+  if (!isSpectator(game)) {
+    viewerFocusBlockEl.classList.add("hidden");
+    return;
+  }
+
+  const options = [{ value: "", label: "全体視点" }];
+  for (const symbol of Object.keys(game.players || {})) {
+    const player = game.players[symbol];
+    options.push({ value: symbol, label: `${player?.name || symbol} (${symbol})` });
+  }
+
+  viewerFocusSelectEl.innerHTML = "";
+  for (const optionData of options) {
+    const option = document.createElement("option");
+    option.value = optionData.value;
+    option.textContent = optionData.label;
+    if (optionData.value === (state.viewerFocusSymbol || "")) {
+      option.selected = true;
+    }
+    viewerFocusSelectEl.appendChild(option);
+  }
+  viewerFocusBlockEl.classList.remove("hidden");
+}
+
+function lockActionArea(container, locked) {
+  if (!container) {
+    return;
+  }
+  container.querySelectorAll("button, input, select, textarea").forEach((el) => {
+    el.disabled = locked;
+  });
 }
 
 function setMode(mode) {
@@ -388,7 +514,14 @@ async function createRoom() {
       name: playerName(),
       game_type: state.selectedGameType,
     });
-    enterRoom(payload.room_code, payload.player_token, payload.player_symbol, payload.game_type);
+    enterRoom(
+      payload.room_code,
+      payload.player_token,
+      payload.player_symbol,
+      payload.game_type,
+      payload.viewer_role,
+      payload.viewer_name,
+    );
     const selectedGame = state.games.find((game) => game.game_type === payload.game_type);
     setLobbyStatus(`ルーム ${payload.room_code} を作成しました。${selectedGame ? selectedGame.title : "ゲーム"} のルームです。`);
   } catch (error) {
@@ -396,7 +529,7 @@ async function createRoom() {
   }
 }
 
-async function joinRoom() {
+async function joinRoom(mode = "player") {
   const code = roomCodeInput();
   if (!code) {
     setLobbyStatus("先にルームIDを入力してください。");
@@ -404,9 +537,18 @@ async function joinRoom() {
   }
 
   try {
-    const payload = await postJson(`/api/rooms/${code}/join`, { name: playerName() });
-    enterRoom(payload.room_code, payload.player_token, payload.player_symbol, payload.game_type);
-    setLobbyStatus(`ルーム ${payload.room_code} に参加しました。`);
+    const payload = await postJson(`/api/rooms/${code}/join`, { name: playerName(), mode });
+    enterRoom(
+      payload.room_code,
+      payload.player_token,
+      payload.player_symbol,
+      payload.game_type,
+      payload.viewer_role,
+      payload.viewer_name,
+    );
+    setLobbyStatus(mode === "spectator"
+      ? `ルーム ${payload.room_code} を観戦します。`
+      : `ルーム ${payload.room_code} に参加しました。`);
   } catch (error) {
     setLobbyStatus(error.message);
   }
@@ -428,6 +570,8 @@ function connectSocket() {
     const payload = JSON.parse(event.data);
     if (payload.type === "state") {
       state.gameState = payload.state;
+      state.viewerRole = payload.state.viewer_role || state.viewerRole;
+      state.viewerName = payload.state.viewer_name || state.viewerName;
       render();
     } else if (payload.type === "error") {
       messageLabelEl.textContent = payload.message;
@@ -439,16 +583,19 @@ function connectSocket() {
   });
 }
 
-function enterRoom(roomCode, token, symbol, gameType) {
+function enterRoom(roomCode, token, symbol, gameType, viewerRole = "player", viewerName = "") {
   state.roomCode = roomCode;
   state.playerToken = token;
   state.playerSymbol = symbol;
+  state.viewerRole = viewerRole;
+  state.viewerName = viewerName;
+  state.viewerFocusSymbol = "";
   state.selectedGameType = gameType;
   state.auctionSettingsOpen = false;
   state.replayTurn = 0;
   state.fiveRulerDraft = {};
   roomCodeLabelEl.textContent = `ルームID: ${roomCode}`;
-  youAreEl.textContent = `${symbol} プレイヤー`;
+  youAreEl.textContent = viewerRole === "spectator" ? "観戦" : `${symbol} プレイヤー`;
   setMode("move");
   connectSocket();
 }
@@ -460,6 +607,9 @@ function leaveRoom() {
   state.roomCode = "";
   state.playerToken = "";
   state.playerSymbol = "";
+  state.viewerRole = "player";
+  state.viewerName = "";
+  state.viewerFocusSymbol = "";
   state.gameState = null;
   state.auctionSettingsOpen = false;
   state.replayTurn = 0;
@@ -471,6 +621,10 @@ function leaveRoom() {
 function sendAction(action) {
   if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
     messageLabelEl.textContent = "サーバーに接続できていません。";
+    return;
+  }
+  if (isSpectator()) {
+    messageLabelEl.textContent = "観戦中は操作できません。";
     return;
   }
   state.socket.send(JSON.stringify({ type: "action", ...action }));
@@ -499,7 +653,7 @@ function currentPlayerState() {
 }
 
 function isFiveRulerType(gameType) {
-  return gameType === "five_ruler" || gameType === "five_ruler_2";
+  return gameType === "five_ruler";
 }
 
 function render() {
@@ -512,9 +666,58 @@ function render() {
 
   gameTitleLabelEl.textContent = game.title || "ゲーム";
   roomCodeLabelEl.textContent = `ルームID: ${game.room_code}`;
-  youAreEl.textContent = `${state.playerSymbol} プレイヤー`;
+  youAreEl.textContent = isSpectator(game)
+    ? `観戦${game.viewer_name ? ` / ${game.viewer_name}` : ""}`
+    : `${state.playerSymbol} プレイヤー`;
   messageLabelEl.textContent = game.message || "";
   winnerLabelEl.textContent = game.winner_text || "";
+  applySpectatorVisibility(game);
+
+  if (grandSharedControlsEl) {
+    grandSharedControlsEl.innerHTML = "";
+    grandSharedControlsEl.classList.add("hidden");
+    if (false && game.game_type === "the_grand" && !game.started) {
+      const isHostViewer = !isSpectator(game) && game.host_symbol === state.playerSymbol;
+      const connectedGrandPlayers = Object.values(game.players || {}).filter((player) => player?.connected).length;
+      grandSharedControlsEl.classList.remove("hidden");
+      if (game.phase === "waiting") {
+        grandSharedControlsEl.innerHTML = `
+          <button id="grandSharedAdvanceButtonStatic" type="button" class="primary" ${isHostViewer && connectedGrandPlayers >= 2 ? "" : "disabled"}>
+            フィールド選択へ進む
+          </button>
+          <div class="microcopy" style="margin-top:8px;">
+            ${connectedGrandPlayers >= 2
+              ? (isHostViewer ? "部屋主はここからフィールド選択へ進めます。" : "部屋主が開始するまで待機してください。")
+              : "両プレイヤーが揃うと、ここからフィールド選択へ進めます。"}
+          </div>
+        `;
+        const grandSharedAdvanceButton = document.getElementById("grandSharedAdvanceButtonStatic");
+        if (grandSharedAdvanceButton && isHostViewer && connectedGrandPlayers >= 2) {
+          grandSharedAdvanceButton.onclick = () => sendAction({ action: "advance_phase" });
+        }
+      } else if (game.phase === "field_select") {
+        grandSharedControlsEl.innerHTML = `
+          <div class="grand-action-grid">
+            <button type="button" class="primary" data-shared-grand-field="grassland" ${isHostViewer ? "" : "disabled"}>草原</button>
+            <button type="button" class="primary" data-shared-grand-field="maze" ${isHostViewer ? "" : "disabled"}>迷宮</button>
+            <button type="button" class="primary" data-shared-grand-field="volcano" ${isHostViewer ? "" : "disabled"}>火山</button>
+            <button type="button" class="primary" data-shared-grand-field="debug_lab" ${isHostViewer ? "" : "disabled"}>お試し部屋</button>
+          </div>
+          <div class="microcopy" style="margin-top:8px;">
+            ${isHostViewer ? "部屋主がフィールドを1つ選んでください。" : "部屋主がフィールドを選ぶまで待機してください。"}
+          </div>
+        `;
+        grandSharedControlsEl.querySelectorAll("[data-shared-grand-field]").forEach((button) => {
+          button.onclick = () => sendAction({
+            action: "confirm_field",
+            settings: { field_type: button.dataset.sharedGrandField },
+          });
+        });
+      } else {
+        grandSharedControlsEl.classList.add("hidden");
+      }
+    }
+  }
 
   pitGameViewEl.classList.toggle("hidden", game.game_type !== "pit_territory");
   auctionGameViewEl.classList.toggle("hidden", game.game_type !== "auction_race");
@@ -523,6 +726,7 @@ function render() {
   morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
   englishShooterViewEl.classList.toggle("hidden", game.game_type !== "english_shooter");
   fiveRulerViewEl.classList.toggle("hidden", !isFiveRulerType(game.game_type));
+  grandGameViewEl.classList.toggle("hidden", !["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type));
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -538,6 +742,53 @@ function render() {
     renderEnglishShooter(game);
   } else if (isFiveRulerType(game.game_type)) {
     renderFiveRuler(game);
+  } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type) && typeof renderGrandGame === "function") {
+    renderGrandGame(game);
+    if (false && game.game_type === "the_grand" && game.phase === "waiting" && !grandGameViewEl.querySelector('[data-grand-action="advance-phase"]')) {
+      const isHostViewer = !isSpectator(game) && game.host_symbol === state.playerSymbol;
+      grandGameViewEl.innerHTML = `
+        <div class="grand-phase grand-main-battle">
+          <section class="grand-panel grand-main-phase">
+            <div class="grand-lab-chip-row grand-main-chip-row">
+              <div class="grand-battle-chip"><span>参加人数</span><strong>${(game.player_order || []).length} / 2 人</strong></div>
+              <div class="grand-battle-chip"><span>あなた</span><strong>${escapeHtml((game.players?.[state.playerSymbol]?.name) || "プレイヤー")}</strong></div>
+              <div class="grand-battle-chip"><span>状態</span><strong>${escapeHtml(game.message || "")}</strong></div>
+            </div>
+            <div class="grand-panel">
+              <p class="eyebrow">試合開始</p>
+              <strong>The Grand</strong>
+              <div class="microcopy">両プレイヤーが揃ったら、部屋主がフィールド選択へ進みます。</div>
+              <div class="grand-action-grid" style="margin-top:16px;">
+                <button id="grandEmergencyAdvanceButton" type="button" class="primary" ${isHostViewer ? "" : "disabled"}>フィールド選択へ進む</button>
+              </div>
+              ${isHostViewer ? "" : '<div class="microcopy">部屋主が開始するまで待機してください。</div>'}
+            </div>
+          </section>
+        </div>
+      `;
+      const emergencyAdvanceButton = document.getElementById("grandEmergencyAdvanceButton");
+      if (emergencyAdvanceButton) {
+        emergencyAdvanceButton.onclick = () => sendAction({ action: "advance_phase" });
+      }
+    }
+  }
+
+  if (game.game_type === "pit_territory") {
+    lockActionArea(pitGameViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "auction_race") {
+    lockActionArea(auctionGameViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "mouse_trap") {
+    lockActionArea(mouseTrapViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "word_spy") {
+    lockActionArea(wordSpyViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "morning_answer") {
+    lockActionArea(morningAnswerViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "english_shooter") {
+    lockActionArea(englishShooterViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (isFiveRulerType(game.game_type)) {
+    lockActionArea(fiveRulerViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type)) {
+    lockActionArea(grandGameViewEl.querySelector(".side-panel"), isSpectator(game));
   }
 }
 
@@ -566,7 +817,7 @@ function renderPitPlayers(game, myPlayer) {
     const card = document.createElement("div");
     card.className = `player-card ${symbol.toLowerCase()}`;
     const labels = [];
-    if (symbol === state.playerSymbol) labels.push("あなた");
+    if (isFocusedPlayer(symbol)) labels.push(isSpectator() ? "注目" : "あなた");
     if (symbol === game.host_symbol) labels.push("部屋主");
     if (game.started && game.turn === symbol && !game.game_over) labels.push("手番");
 
@@ -578,7 +829,7 @@ function renderPitPlayers(game, myPlayer) {
       <div>接続: ${player.surrendered ? "行動終了" : player.connected ? "接続中" : "オフライン"}</div>
       <div>前回の行動: ${actionLabel(player.last_action)}</div>
       <div>位置: (${player.position[0] + 1}, ${player.position[1] + 1})</div>
-      ${myPlayer && symbol === state.playerSymbol ? `<div>自分のジャンプ残り: ${myPlayer.jumps_left}</div>` : ""}
+      ${myPlayer && !isSpectator() && symbol === state.playerSymbol ? `<div>自分のジャンプ残り: ${myPlayer.jumps_left}</div>` : ""}
     `;
     playersPanelEl.appendChild(card);
   }
@@ -782,7 +1033,7 @@ function renderAuctionPlayers(game) {
   for (const symbol of Object.keys(game.players)) {
     const player = game.players[symbol];
     const card = document.createElement("div");
-    card.className = `player-card seat-${symbol.toLowerCase()}`;
+    card.className = `player-card seat-${symbol.toLowerCase()} ${isFocusedPlayer(symbol) ? "you" : ""}`;
     const labels = [];
     if (symbol === state.playerSymbol) labels.push("あなた");
     if (symbol === game.host_symbol) labels.push("部屋主");
@@ -911,7 +1162,7 @@ function renderAuctionBoard(game) {
     pieces.className = "tile-pieces";
     for (const symbol of piecesByPosition.get(index) || []) {
       const piece = document.createElement("div");
-      piece.className = `track-piece seat-${symbol.toLowerCase()} ${symbol === state.playerSymbol ? "is-you" : ""}`;
+      piece.className = `track-piece seat-${symbol.toLowerCase()} ${isFocusedPlayer(symbol) ? "is-you" : ""}`;
       piece.textContent = symbol;
       pieces.appendChild(piece);
     }
@@ -1731,8 +1982,9 @@ function renderEnglishShooter(game) {
   const isTranslationPhase = game.phase === "translation" && !translationTimedOut;
   const activeSymbols = game.active_symbols || [];
   const activePlayers = activeSymbols.map((symbol) => game.players?.[symbol]).filter(Boolean);
-  const viewerPlayer = game.players?.[state.playerSymbol];
-  const opponent = activePlayers.find((player) => player.symbol !== state.playerSymbol) || activePlayers[1] || null;
+  const viewerSymbol = focusSymbol(game);
+  const viewerPlayer = game.players?.[viewerSymbol];
+  const opponent = activePlayers.find((player) => player.symbol !== viewerSymbol) || activePlayers[1] || null;
   const englishModeLabel = document.getElementById("englishModeLabel");
   const englishSelfStatTitle = document.getElementById("englishSelfStatTitle");
   const englishLeaderLabel = document.getElementById("englishLeaderLabel");
@@ -1891,7 +2143,7 @@ function renderEnglishShooter(game) {
   playersPanel.innerHTML = "";
   for (const player of activePlayers) {
     const card = document.createElement("div");
-    card.className = `english-player-card ${player.symbol === state.playerSymbol ? "you" : ""}`;
+    card.className = `english-player-card ${isFocusedPlayer(player.symbol) ? "you" : ""}`;
     const hpText = player.max_hp ? `HP ${player.hp} / ${player.max_hp}` : "HP -";
     card.innerHTML = `
       <strong>${player.name}</strong>
@@ -2166,7 +2418,7 @@ function renderFiveRuler(game) {
     const player = game.players?.[symbol];
     if (!player) continue;
     const panel = document.createElement("div");
-    panel.className = `english-player-card ${symbol === state.playerSymbol ? "you" : ""}`;
+    panel.className = `english-player-card ${isFocusedPlayer(symbol) ? "you" : ""}`;
     panel.innerHTML = `
       <strong>${player.name}</strong>
       <span>${symbol === state.playerSymbol ? "あなた" : symbol}</span>
@@ -2222,6 +2474,13 @@ function renderFiveRuler(game) {
   fiveRulerEls.submitTrimButton.disabled = !isTrim || fiveRulerSelectedCards("five-ruler-trim-card").length !== handSize;
   fiveRulerEls.nextTurnButton.disabled = !isTurnResult;
   refreshFiveRulerSelectionButtons();
+
+  if (fiveRulerEls.modeFullButton) {
+    fiveRulerEls.modeFullButton.classList.toggle("primary", game.setup_mode === "full");
+  }
+  if (fiveRulerEls.modeIncrementalButton) {
+    fiveRulerEls.modeIncrementalButton.classList.toggle("primary", game.setup_mode === "incremental");
+  }
 }
 
 function submitFiveRulerPlan() {
@@ -2458,12 +2717,19 @@ function bindDirectionButton(buttonId, direction) {
 }
 
 document.getElementById("createRoomButton").addEventListener("click", createRoom);
-document.getElementById("joinRoomButton").addEventListener("click", joinRoom);
+document.getElementById("joinRoomButton").addEventListener("click", () => joinRoom("player"));
+spectateRoomButtonEl?.addEventListener("click", () => joinRoom("spectator"));
 document.getElementById("leaveRoomButton").addEventListener("click", leaveRoom);
 document.getElementById("copyRoomButton").addEventListener("click", async () => {
   if (!state.roomCode) return;
   await navigator.clipboard.writeText(state.roomCode).catch(() => {});
   setLobbyStatus(`ルームID ${state.roomCode} をコピーしました。`);
+});
+viewerFocusSelectEl?.addEventListener("change", () => {
+  state.viewerFocusSymbol = viewerFocusSelectEl.value;
+  if (state.gameState) {
+    render();
+  }
 });
 
 document.getElementById("moveModeButton").addEventListener("click", () => setMode("move"));
@@ -2589,6 +2855,8 @@ document.getElementById("replayNextButton").addEventListener("click", () => {
   render();
 });
 fiveRulerEls.startButton?.addEventListener("click", () => sendAction({ action: "start_match" }));
+fiveRulerEls.modeFullButton?.addEventListener("click", () => sendAction({ action: "set_setup_mode", settings: { setup_mode: "full" } }));
+fiveRulerEls.modeIncrementalButton?.addEventListener("click", () => sendAction({ action: "set_setup_mode", settings: { setup_mode: "incremental" } }));
 fiveRulerEls.submitPlanButton?.addEventListener("click", submitFiveRulerPlan);
 fiveRulerEls.submitTurnButton?.addEventListener("click", () => {
   sendAction({ action: "submit_turn_cards", selected_cards: fiveRulerSelectedCards("five-ruler-battle-card") });

@@ -28,6 +28,7 @@ class CreateRoomRequest(BaseModel):
 
 class JoinRoomRequest(BaseModel):
     name: str = ""
+    mode: str = "player"
 
 
 def game_seat_order(game: Any) -> list[str]:
@@ -91,6 +92,8 @@ class Room:
     game: Any
     host_token: str
     token_to_symbol: Dict[str, str] = field(default_factory=dict)
+    token_to_name: Dict[str, str] = field(default_factory=dict)
+    token_to_role: Dict[str, str] = field(default_factory=dict)
     sockets: Dict[str, WebSocket] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -98,7 +101,17 @@ class Room:
         return self.token_to_symbol.get(self.host_token, "")
 
     def player_count(self) -> int:
-        return len(self.token_to_symbol)
+        return sum(1 for role in self.token_to_role.values() if role == "player")
+
+    def spectator_count(self) -> int:
+        return sum(1 for role in self.token_to_role.values() if role == "spectator")
+
+    def spectator_names(self) -> list[str]:
+        return [
+            self.token_to_name.get(token, "観戦")
+            for token, role in self.token_to_role.items()
+            if role == "spectator"
+        ]
 
     def next_available_symbol(self) -> str | None:
         for symbol in game_seat_order(self.game):
@@ -107,12 +120,17 @@ class Room:
         return None
 
     def public_state_for(self, player_token: str) -> dict:
-        viewer_symbol = self.token_to_symbol.get(player_token, "")
+        viewer_role = self.token_to_role.get(player_token, "spectator")
+        viewer_symbol = self.token_to_symbol.get(player_token, "") if viewer_role == "player" else ""
         state = game_to_public_dict(self.game, viewer_symbol)
         return {
             "room_code": self.code,
             "player_symbol": viewer_symbol,
+            "viewer_role": viewer_role,
+            "viewer_name": self.token_to_name.get(player_token, ""),
             "players_joined": self.player_count(),
+            "spectators_joined": self.spectator_count(),
+            "spectators": self.spectator_names(),
             "min_players": game_min_players(self.game),
             "max_players": game_max_players(self.game),
             "game_type": self.game_type,
@@ -173,7 +191,7 @@ async def broadcast_state(room: Room) -> None:
     for token in disconnected:
         room.sockets.pop(token, None)
         symbol = room.token_to_symbol.get(token)
-        if symbol:
+        if symbol and room.token_to_role.get(token) == "player":
             set_game_connection(room.game, symbol, False)
 
 
@@ -216,12 +234,16 @@ async def create_room(payload: CreateRoomRequest) -> dict:
     token = create_token()
     room = Room(code=room_code, game_type=payload.game_type, game=game, host_token=token)
     room.token_to_symbol[token] = first_symbol
+    room.token_to_name[token] = payload.name
+    room.token_to_role[token] = "player"
     room.game.set_player_name(first_symbol, payload.name)
     rooms[room_code] = room
     return {
         "room_code": room_code,
         "player_token": token,
         "player_symbol": first_symbol,
+        "viewer_role": "player",
+        "viewer_name": payload.name,
         "game_type": payload.game_type,
     }
 
@@ -229,6 +251,21 @@ async def create_room(payload: CreateRoomRequest) -> dict:
 @app.post("/api/rooms/{room_code}/join")
 async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
     room = get_room_or_404(room_code)
+    mode = payload.mode if payload.mode in {"player", "spectator"} else "player"
+
+    if mode == "spectator":
+        token = create_token()
+        room.token_to_name[token] = payload.name
+        room.token_to_role[token] = "spectator"
+        await broadcast_state(room)
+        return {
+            "room_code": room.code,
+            "player_token": token,
+            "player_symbol": "",
+            "viewer_role": "spectator",
+            "viewer_name": payload.name,
+            "game_type": room.game_type,
+        }
 
     if game_started(room.game) and not game_allows_midgame_join(room.game):
         raise HTTPException(status_code=400, detail="ゲーム開始後は途中参加できません。")
@@ -242,6 +279,8 @@ async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
 
     token = create_token()
     room.token_to_symbol[token] = symbol
+    room.token_to_name[token] = payload.name
+    room.token_to_role[token] = "player"
     room.game.set_player_name(symbol, payload.name)
     if hasattr(room.game, "start_if_ready"):
         room.game.start_if_ready()
@@ -250,6 +289,8 @@ async def join_room(room_code: str, payload: JoinRoomRequest) -> dict:
         "room_code": room.code,
         "player_token": token,
         "player_symbol": symbol,
+        "viewer_role": "player",
+        "viewer_name": payload.name,
         "game_type": room.game_type,
     }
 
@@ -305,22 +346,24 @@ def apply_host_action(room: Room, payload: dict) -> None:
         room.game.set_start_player(payload.get("start_choice", ""))
         return
 
-    raise ValueError("不明な管理操作です。")
+    raise ValueError("対応していない操作です。")
 
 
 @app.websocket("/ws/{room_code}/{player_token}")
 async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token: str) -> None:
     room = rooms.get(room_code.upper())
-    if room is None or player_token not in room.token_to_symbol:
+    if room is None or player_token not in room.token_to_role:
         await websocket.close(code=1008)
         return
 
-    symbol = room.token_to_symbol[player_token]
+    symbol = room.token_to_symbol.get(player_token, "")
+    role = room.token_to_role.get(player_token, "spectator")
     await websocket.accept()
 
     async with room.lock:
         room.sockets[player_token] = websocket
-        set_game_connection(room.game, symbol, True)
+        if role == "player" and symbol:
+            set_game_connection(room.game, symbol, True)
         if hasattr(room.game, "start_if_ready"):
             room.game.start_if_ready()
         await broadcast_state(room)
@@ -340,6 +383,8 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token:
                     elif action in game_host_actions(room.game) or action == "set_start_player":
                         ensure_host(room, player_token)
                         apply_host_action(room, payload)
+                    elif role != "player":
+                        raise ValueError("観戦者は操作できません。")
                     else:
                         apply_player_action(room, symbol, payload)
                 except Exception as exc:
@@ -352,7 +397,11 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str, player_token:
     except WebSocketDisconnect:
         async with room.lock:
             room.sockets.pop(player_token, None)
-            set_game_connection(room.game, symbol, False)
-            player_name = getattr(room.game.players.get(symbol), "name", symbol)
-            room.game.message = f"{player_name} が切断しました。"
+            viewer_name = room.token_to_name.get(player_token, "")
+            if role == "player" and symbol:
+                set_game_connection(room.game, symbol, False)
+                player_name = getattr(room.game.players.get(symbol), "name", symbol)
+                room.game.message = f"{player_name} が切断しました。"
+            elif viewer_name:
+                room.game.message = f"{viewer_name} の観戦が切断しました。"
             await broadcast_state(room)

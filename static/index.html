@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ST-SPACE Game Rooms</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=20260419-grandmap3">
 </head>
 <body>
   <main class="shell">
@@ -65,8 +65,9 @@
         <div class="panel-block">
           <p class="eyebrow">ゲーム状況</p>
           <p id="turnLabel" class="big-line">読み込み中...</p>
-          <p id="messageLabel" class="message-box">ルームに接続するとここに状況が表示されます。</p>
-          <p id="winnerLabel" class="winner-line"></p>
+          <div id="messageLabel" class="message-box">ルームに接続するとここに状況が表示されます。</div>
+          <div id="winnerLabel" class="winner-line"></div>
+          <div id="grandSharedControls" class="hidden" style="margin-top:12px;"></div>
         </div>
       </div>
 
@@ -741,6 +742,10 @@
         <aside class="side-panel">
           <div id="fiveRulerStartPanel" class="panel-block hidden">
             <p class="eyebrow">ゲーム開始</p>
+            <div class="action-grid">
+              <button id="fiveRulerModeFullButton" type="button">全ルール指定</button>
+              <button id="fiveRulerModeIncrementalButton" type="button">各ルール指定</button>
+            </div>
             <button id="fiveRulerStartButton" class="primary">このメンバーで始める</button>
             <p class="microcopy">先に2人そろってから、部屋主が開始してください。</p>
           </div>
@@ -781,9 +786,12 @@
           </div>
         </aside>
       </div>
+
+      <div id="grandGameView" class="arena hidden"></div>
     </section>
   </main>
 
-  <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20260419-grandmap3"></script>
+    <script src="/static/the_grand.js?v=20260419-grandmap3"></script>
 </body>
 </html>

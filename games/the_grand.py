@@ -437,7 +437,12 @@ class TheGrandGame:
         player.order = priority
         player.order_confirmed = True
         if all(self.players[s].order_confirmed for s in TEAM_SYMBOLS):
-            self._setup_battle()
+            if not self.units:
+                self._setup_battle()
+            self.pending_actions.clear()
+            self.continue_confirmed.clear()
+            self.result_ready = False
+            self.round_notices = []
             self.phase = "battle"
             self.started = True
             self.message = "戦闘開始です。移動を決定してください。"
@@ -553,7 +558,7 @@ class TheGrandGame:
                 if cell in self.walls:
                     break
                 actor.cell = cell
-                actor.cost += 1
+            actor.cost += 1
         self.pending_actions.clear()
         self.result_ready = True
         self.continue_confirmed.clear()

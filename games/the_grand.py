@@ -25,6 +25,7 @@ class SkillDef:
     name: str
     cost: int
     description: str
+    key: str = ""
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class CharacterDef:
     small: SkillDef
     medium: SkillDef
     large: SkillDef
+    memo: str = ""
 
 
 CHARACTERS: Dict[str, CharacterDef] = {
@@ -212,24 +214,67 @@ class UnitState:
     hp: int
     cost: int = 0
     alive: bool = True
+    owner: str = ""
+    display_name: str = ""
+    max_hp: int = 0
+    base_move: int = 0
+    base_power: int = 0
+    base_vision: int = 0
+    is_summon: bool = False
+    true_sight: bool = False
+    reflect_ratio: float = 0.0
+    vision_bonus: int = 0
+    move_bonus: int = 0
+
+    def __post_init__(self) -> None:
+        if not self.owner:
+            self.owner = self.team
+        if not self.display_name:
+            self.display_name = self.name
+        if not self.max_hp:
+            self.max_hp = self.power
+        if not self.base_move:
+            self.base_move = self.move
+        if not self.base_power:
+            self.base_power = self.power
+        if not self.base_vision:
+            self.base_vision = self.vision
+
+    @property
+    def effective_move(self) -> int:
+        return max(0, self.base_move + self.move_bonus)
+
+    @property
+    def effective_vision(self) -> int:
+        return max(1, self.base_vision + self.vision_bonus)
 
     def to_public_dict(self) -> dict:
+        character = CHARACTERS.get(self.character_key)
         return {
             "id": self.id,
             "team": self.team,
+            "owner": self.owner,
             "character_key": self.character_key,
             "role": self.role,
             "name": self.name,
-            "move": self.move,
-            "power": self.power,
-            "vision": self.vision,
+            "display_name": self.display_name,
+            "move": self.effective_move,
+            "power": self.base_power,
+            "vision": self.effective_vision,
             "cell": list(self.cell),
             "spawn_cell": list(self.spawn_cell),
             "hp": self.hp,
-            "max_hp": self.power,
+            "max_hp": self.max_hp,
             "cost": self.cost,
             "alive": self.alive,
+            "is_summon": self.is_summon,
+            "small": character.small.__dict__ if character else None,
+            "medium": character.medium.__dict__ if character else None,
+            "large": character.large.__dict__ if character else None,
         }
+
+
+PlayerSlot = PlayerState
 
 
 @dataclass
@@ -282,10 +327,23 @@ class TheGrandGame:
         self.flags: Dict[str, FlagState] = {}
         self.walls: Set[Cell] = set()
         self.coins: Set[Cell] = set()
+        self.known_floor_by_team: Dict[str, Set[Cell]] = {symbol: set() for symbol in TEAM_SYMBOLS}
+        self.known_walls_by_team: Dict[str, Set[Cell]] = {symbol: set() for symbol in TEAM_SYMBOLS}
+        self.known_coins_by_team: Dict[str, Set[Cell]] = {symbol: set() for symbol in TEAM_SYMBOLS}
         self.pending_actions: Dict[str, dict] = {}
         self.continue_confirmed: Set[str] = set()
         self.result_ready = False
         self.round_notices: List[str] = []
+        self.shared_vision_teams: Set[str] = set()
+        self.true_sight_units: Set[str] = set()
+        self.reflect_units: Dict[str, float] = {}
+        self.bound_targets: Set[str] = set()
+        self.archer_marks: Dict[str, dict] = {}
+        self.samurai_sky_units: Set[str] = set()
+        self.samurai_guard_units: Set[str] = set()
+        self.berserk_radius: Dict[str, int] = {}
+        self.bird_snapshots: Dict[str, dict] = {}
+        self.turn_plan: Dict[str, List[str]] = {symbol: [] for symbol in TEAM_SYMBOLS}
 
     @classmethod
     def catalog_entry(cls) -> dict:
@@ -437,6 +495,8 @@ class TheGrandGame:
         player.order = priority
         player.order_confirmed = True
         if all(self.players[s].order_confirmed for s in TEAM_SYMBOLS):
+            for team in TEAM_SYMBOLS:
+                self.turn_plan[team] = self._build_turn_plan(self.players[team].order)
             if not self.units:
                 self._setup_battle()
             self.pending_actions.clear()
@@ -447,6 +507,11 @@ class TheGrandGame:
             self.started = True
             self.message = "戦闘開始です。移動を決定してください。"
 
+    def _build_turn_plan(self, order: List[str]) -> List[str]:
+        if not order:
+            return []
+        return [order[index % len(order)] for index in range(ROUNDS_PER_SET)]
+
     def _setup_battle(self) -> None:
         self.units.clear()
         self.flags.clear()
@@ -456,6 +521,18 @@ class TheGrandGame:
         self.continue_confirmed.clear()
         self.result_ready = False
         self.round_notices = []
+        self.shared_vision_teams.clear()
+        self.true_sight_units.clear()
+        self.reflect_units.clear()
+        self.bound_targets.clear()
+        self.archer_marks.clear()
+        self.samurai_sky_units.clear()
+        self.samurai_guard_units.clear()
+        self.berserk_radius.clear()
+        self.bird_snapshots.clear()
+        self.known_floor_by_team = {symbol: set() for symbol in TEAM_SYMBOLS}
+        self.known_walls_by_team = {symbol: set() for symbol in TEAM_SYMBOLS}
+        self.known_coins_by_team = {symbol: set() for symbol in TEAM_SYMBOLS}
         used_cells: Set[Cell] = set()
         for symbol in TEAM_SYMBOLS:
             for index, key in enumerate(self.players[symbol].selected_keys):
@@ -475,8 +552,17 @@ class TheGrandGame:
                     cell=cell,
                     spawn_cell=cell,
                     hp=character.power,
+                    max_hp=character.power,
+                    owner=symbol,
+                    display_name=character.name,
+                    base_move=character.move,
+                    base_power=character.power,
+                    base_vision=character.vision,
                 )
                 self.flags[f"{unit_id}-flag"] = FlagState(id=f"{unit_id}-flag", team=symbol, cell=cell)
+        self._respawn_coins()
+        for team in TEAM_SYMBOLS:
+            self._refresh_known_map(team)
 
     def _build_walls(self, field_type: str) -> Set[Cell]:
         walls: Set[Cell] = set()
@@ -500,11 +586,28 @@ class TheGrandGame:
             if all(distance(cell, other) >= MIN_SPAWN_DISTANCE for other in used_cells):
                 return cell
 
+    def _respawn_coins(self) -> None:
+        self.coins.clear()
+        target = max(2, sum(len(player.selected_keys) for player in self.players.values()))
+        blocked = {unit.cell for unit in self.units.values() if unit.alive} | {flag.cell for flag in self.flags.values() if flag.alive} | self.walls
+        while len(self.coins) < target:
+            cell = (random.randrange(self.board_size), random.randrange(self.board_size))
+            if cell in blocked or cell in self.coins:
+                continue
+            self.coins.add(cell)
+
+    def _refresh_known_map(self, team: str) -> None:
+        visible = self._visible_cells_for_team(team)
+        self.known_floor_by_team[team].update(cell for cell in visible if cell not in self.walls)
+        self.known_walls_by_team[team].update(cell for cell in visible if cell in self.walls)
+        self.known_coins_by_team[team].difference_update({cell for cell in self.known_coins_by_team[team] if cell not in self.coins})
+        self.known_coins_by_team[team].update(cell for cell in visible if cell in self.coins)
+
     def _current_actor_id(self, team: str) -> str:
-        player = self.players[team]
-        if not player.order:
+        plan = self.turn_plan.get(team) or []
+        if not plan:
             return ""
-        key = player.order[(self.round_number - 1) % len(player.order)]
+        key = plan[self.round_number - 1] if self.round_number - 1 < len(plan) else ""
         for unit in self.units.values():
             if unit.team == team and unit.character_key == key and unit.alive:
                 return unit.id

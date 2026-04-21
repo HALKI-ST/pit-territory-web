@@ -4,6 +4,7 @@
 
   const ui = {
     inspectKey: "",
+    referenceKey: "",
     orderDraft: [],
     orderSeed: "",
     path: [],
@@ -66,6 +67,114 @@
     return hero
       ? `/static/assets/the_grand/hero/${key}.png`
       : `/static/assets/the_grand/${key}.png`;
+  }
+
+  function syncReferenceKey(game) {
+    const keys = (game.catalog || []).map((entry) => entry.key);
+    if (keys.includes(ui.referenceKey)) return;
+    ui.referenceKey = currentActor(game)?.character_key || game.catalog?.[0]?.key || "";
+  }
+
+  function skillSpec(entry, tier) {
+    if (!entry || !entry[tier]) return null;
+    const skill = entry[tier];
+    const movementMap = {
+      speed_star: { small: "技そのものが移動になる", medium: "技そのものが移動になる", large: "技そのものが移動になる" },
+      spiritualist: { small: "通常移動しながら使える", medium: "移動不可", large: "移動不可" },
+      archer: { small: "通常移動しながら使える", medium: "移動不可", large: "移動不可" },
+      soldier: { small: "通常移動しながら使える", medium: "移動不可", large: "移動不可" },
+      leader: { small: "通常移動しながら使える", medium: "移動不可", large: "移動不可" },
+      saint: { small: "通常移動しながら使える", medium: "移動不可", large: "通常移動しながら使える" },
+      psychic: { small: "移動不可", medium: "移動不可", large: "移動不可" },
+      samurai: { small: "移動不可", medium: "移動不可", large: "移動不可" },
+      berserker: { small: "通常移動しながら使える", medium: "通常移動しながら使える", large: "通常移動しながら使える" },
+      beastmaster: { small: "技そのものが移動になる", medium: "移動不可", large: "移動不可" },
+    };
+    const attackMap = {
+      speed_star: { small: "なし", medium: "戦闘力/5", large: "直撃は撃破 / 側面は戦闘力/2" },
+      spiritualist: { small: "なし", medium: "なし", large: "100" },
+      archer: { small: "1", medium: "2", large: "基本必殺" },
+      soldier: { small: "戦闘力/3", medium: "回復1", large: "自己強化" },
+      leader: { small: "戦闘力/5", medium: "なし", large: "なし" },
+      saint: { small: "完全反射", medium: "回復3", large: "なし" },
+      psychic: { small: "半径5内に3 / 自分1", medium: "なし", large: "10内5 / 20内3 / 以外1" },
+      samurai: { small: "戦闘力/3", medium: "戦闘力/2", large: "迎撃で撃破" },
+      berserker: { small: "戦闘力分", medium: "なし", large: "範囲拡張" },
+      beastmaster: { small: "4", medium: "なし", large: "召喚" },
+    };
+    return {
+      ...skill,
+      movementType: movementMap[entry.key]?.[tier] || "通常移動しながら使える",
+      attackPower: attackMap[entry.key]?.[tier] || "なし",
+      effectText: skill.description || "",
+    };
+  }
+
+  function rangeDiagram(entry, tier) {
+    const spec = skillSpec(entry, tier);
+    if (!spec) return { html: "<div class='grand2-range-empty'>図なし</div>", legend: "図情報なし" };
+    const size = 7;
+    const center = 3;
+    const marks = new Map();
+    const mark = (x, y, cls) => marks.set(`${x},${y}`, cls);
+    mark(center, center, "origin");
+    if (entry.key === "speed_star" && tier === "large") {
+      for (let x = center + 1; x < size; x += 1) {
+        mark(x, center, "danger");
+        if (center - 1 >= 0) mark(x, center - 1, "splash");
+        if (center + 1 < size) mark(x, center + 1, "splash");
+      }
+    } else if (entry.key === "speed_star" && ["small", "medium"].includes(tier)) {
+      for (let x = center + 1; x < size; x += 1) mark(x, center, "danger");
+    } else if (entry.key === "psychic" && tier === "small") {
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          const d = Math.hypot(x - center, y - center);
+          if (x === center && y === center) continue;
+          if (d <= 2.5) mark(x, y, "danger");
+        }
+      }
+      mark(center, center, "self-hit");
+    } else if (entry.key === "psychic" && tier === "large") {
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (x === center && y === center) continue;
+          const d = Math.hypot(x - center, y - center);
+          if (d <= 1.5) mark(x, y, "danger");
+          else if (d <= 3) mark(x, y, "splash");
+          else mark(x, y, "trace");
+        }
+      }
+    } else if (entry.key === "archer" && tier === "large") {
+      for (let x = center + 1; x < size; x += 1) mark(x, center, "danger");
+      for (let x = 0; x < center; x += 1) mark(x, center, "trace");
+    } else if (entry.key === "samurai" && tier === "small") {
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (Math.hypot(x - center, y - center) <= 3) mark(x, y, "danger");
+        }
+      }
+    } else if (entry.key === "saint" && tier === "large") {
+      for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) mark(x, y, "ally");
+    } else if (entry.key === "spiritualist" && tier === "small") {
+      for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) mark(x, y, "ally");
+    } else if (entry.key === "beastmaster" && tier === "small") {
+      for (let x = center + 1; x < size; x += 1) mark(x, center, "danger");
+    } else {
+      for (let y = center - 1; y <= center + 1; y += 1) {
+        for (let x = center - 1; x <= center + 1; x += 1) mark(x, y, "splash");
+      }
+    }
+    const html = Array.from({ length: size * size }, (_, index) => {
+      const x = index % size;
+      const y = Math.floor(index / size);
+      const cls = marks.get(`${x},${y}`) || "";
+      return `<span class="grand2-range-cell ${cls}"></span>`;
+    }).join("");
+    return {
+      html: `<div class="grand2-range-grid">${html}</div>`,
+      legend: "青枠: 自分 / 赤: 主効果 / 黄: 副効果 / 水色: 視界・共有 / 灰点線: 直線の伸び方",
+    };
   }
 
   function syncInspectKey(game) {
@@ -428,8 +537,10 @@
 
   function renderBattle(game) {
     syncBattleInput(game);
+    syncReferenceKey(game);
     const actor = currentActor(game);
     const actorCatalog = actor ? characterByKey(game, actor.character_key) : null;
+    const referenceEntry = characterByKey(game, ui.referenceKey);
     const viewport = game.viewport || { cells: [], visible_cells: [] };
     const visible = visibleSet(game);
     const walls = wallsSet(game);
@@ -467,6 +578,35 @@
     }).join("");
 
     const minimap = buildMinimap(game);
+    const referenceCards = ["small", "medium", "large"].map((tier) => {
+      const spec = skillSpec(referenceEntry, tier);
+      if (!spec) return "";
+      const diagram = rangeDiagram(referenceEntry, tier);
+      const labelMap = { small: "小技", medium: "中技", large: "大技" };
+      return `
+        <article class="grand2-reference-card">
+          <header>
+            <strong>${labelMap[tier]} / ${escapeHtml(spec.name)}</strong>
+            <span>コスト ${spec.cost}</span>
+          </header>
+          <div class="grand2-reference-meta">
+            <p><b>移動種別</b> ${escapeHtml(spec.movementType)}</p>
+            <p><b>攻撃力</b> ${escapeHtml(spec.attackPower)}</p>
+          </div>
+          <p class="grand2-copy"><b>説明</b> ${escapeHtml(spec.effectText)}</p>
+          <div class="grand2-reference-split">
+            <div>
+              <p class="grand2-copy"><b>効果範囲</b></p>
+              ${diagram.html}
+            </div>
+            <div>
+              <p class="grand2-copy"><b>図の見方</b></p>
+              <p class="grand2-copy">${escapeHtml(diagram.legend)}</p>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
 
     root.innerHTML = `
       <div class="grand2-phase grand2-battle-layout">
@@ -579,6 +719,25 @@
               </div>
             `).join("")}
           </div>
+          <div class="grand2-reference-panel">
+            <p class="grand2-eyebrow">全キャラ閲覧</p>
+            <label class="grand2-copy">キャラクター
+              <select data-grand-reference>
+                ${(game.catalog || []).map((entry) => `<option value="${escapeHtml(entry.key)}" ${ui.referenceKey === entry.key ? "selected" : ""}>${escapeHtml(characterLabel(entry))}</option>`).join("")}
+              </select>
+            </label>
+            ${referenceEntry ? `
+              <div class="grand2-reference-header">
+                <img src="${spritePath(referenceEntry.key)}" alt="${escapeHtml(referenceEntry.name)}" class="grand2-reference-image">
+                <div>
+                  <h3>${escapeHtml(characterLabel(referenceEntry))}</h3>
+                  <p class="grand2-copy">戦闘力 ${referenceEntry.power} / 行動力 ${referenceEntry.move} / 探知力 ${referenceEntry.vision}</p>
+                  <p class="grand2-copy">${escapeHtml(referenceEntry.summary || "")}</p>
+                </div>
+              </div>
+              <div class="grand2-reference-cards">${referenceCards}</div>
+            ` : ""}
+          </div>
         </section>
       </div>
     `;
@@ -644,6 +803,10 @@
     });
     root.querySelector("[data-grand-confirm-result]")?.addEventListener("click", () => {
       sendGrandAction({ action: "confirm_result" });
+    });
+    root.querySelector("[data-grand-reference]")?.addEventListener("change", (event) => {
+      ui.referenceKey = event.target.value;
+      renderGrandGame(game);
     });
   }
 

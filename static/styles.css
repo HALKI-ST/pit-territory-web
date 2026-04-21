@@ -4317,6 +4317,120 @@ button.danger {
   margin-top: 16px;
 }
 
+.grand2-reference-panel {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(120, 120, 120, 0.14);
+  display: grid;
+  gap: 14px;
+}
+
+.grand2-reference-header {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.grand2-reference-image {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+}
+
+.grand2-reference-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.grand2-reference-card {
+  border: 1px solid rgba(120, 120, 120, 0.12);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: #fffdfa;
+  display: grid;
+  gap: 10px;
+}
+
+.grand2-reference-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.grand2-reference-card header span {
+  color: #756d61;
+  font-size: 13px;
+}
+
+.grand2-reference-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.grand2-reference-meta p {
+  margin: 0;
+}
+
+.grand2-reference-split {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.grand2-range-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 18px);
+  grid-template-rows: repeat(7, 18px);
+  gap: 3px;
+  padding: 8px;
+  border-radius: 14px;
+  background: #f3ede3;
+  width: max-content;
+}
+
+.grand2-range-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(120, 120, 120, 0.12);
+}
+
+.grand2-range-cell.origin {
+  box-shadow: inset 0 0 0 2px rgba(55, 119, 194, 0.95);
+  background: rgba(120, 180, 255, 0.25);
+}
+
+.grand2-range-cell.danger {
+  background: rgba(224, 93, 70, 0.9);
+}
+
+.grand2-range-cell.splash {
+  background: rgba(243, 192, 75, 0.85);
+}
+
+.grand2-range-cell.ally {
+  background: rgba(111, 186, 204, 0.72);
+}
+
+.grand2-range-cell.trace {
+  background: rgba(120, 120, 120, 0.18);
+  border: 1px dashed rgba(120, 120, 120, 0.6);
+}
+
+.grand2-range-cell.self-hit {
+  background: rgba(160, 78, 178, 0.8);
+  box-shadow: inset 0 0 0 2px rgba(55, 119, 194, 0.95);
+}
+
+.grand2-range-empty {
+  color: #756d61;
+  font-size: 13px;
+}
+
 .grand2-team-box {
   border: 1px solid rgba(34, 36, 37, 0.08);
   border-radius: 16px;

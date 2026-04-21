@@ -8,6 +8,13 @@
     orderSeed: "",
     path: [],
     battleSeed: "",
+    selectedSkillTier: "",
+    skillTargetUnitId: "",
+    skillTargetCell: null,
+    skillDirection: "right",
+    skillDistance: 1,
+    leaderReconfigure: {},
+    leaderRedeploy: {},
   };
 
   const TEAM_LABELS = {
@@ -87,7 +94,39 @@
     if (seed !== ui.battleSeed) {
       ui.battleSeed = seed;
       ui.path = [];
+      ui.selectedSkillTier = "";
+      ui.skillTargetUnitId = "";
+      ui.skillTargetCell = null;
+      ui.skillDirection = "right";
+      ui.skillDistance = 1;
+      ui.leaderReconfigure = {};
+      ui.leaderRedeploy = {};
     }
+  }
+
+  function selectedSkill(actor) {
+    if (!actor || !ui.selectedSkillTier) return null;
+    return actor[ui.selectedSkillTier] || null;
+  }
+
+  function movementType(actor) {
+    if (!actor || !ui.selectedSkillTier) return "move";
+    const tier = ui.selectedSkillTier;
+    if (actor.character_key === "speed_star" && ["small", "medium", "large"].includes(tier)) return "skill_move";
+    if (actor.character_key === "beastmaster" && ["small", "large"].includes(tier)) return "skill_move";
+    if (actor.character_key === "psychic" && tier === "small") return "immobile";
+    if (["spiritualist", "archer", "leader", "saint", "psychic", "samurai"].includes(actor.character_key) && ["medium", "large"].includes(tier)) return "immobile";
+    return "move";
+  }
+
+  function stepLimit(actor) {
+    if (!actor) return 0;
+    const tier = ui.selectedSkillTier;
+    if (movementType(actor) === "immobile") return 0;
+    if (actor.character_key === "speed_star" && ["small", "medium"].includes(tier)) return 10;
+    if (actor.character_key === "beastmaster" && tier === "small") return 10;
+    if (actor.character_key === "berserker" && tier === "medium") return actor.move * 2;
+    return actor.move;
   }
 
   function currentActor(game) {
@@ -129,7 +168,7 @@
     if (!actor || game.viewer_waiting || game.result_ready) return result;
     const walls = wallsSet(game);
     const current = ui.path.length ? ui.path[ui.path.length - 1] : actor.cell;
-    const remaining = actor.move - ui.path.length;
+    const remaining = stepLimit(actor) - ui.path.length;
     if (remaining <= 0) return result;
     [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
       const next = [current[0] + dx, current[1] + dy];
@@ -397,6 +436,10 @@
     const flags = flagsByCell(game);
     const path = battlePathSet();
     const reachable = reachableSet(game, actor);
+    const skill = selectedSkill(actor);
+    const enemies = Object.values(game.units || {}).filter((unit) => unit?.alive && actor && unit.owner !== actor.owner);
+    const allies = Object.values(game.units || {}).filter((unit) => unit?.alive && actor && unit.owner === actor.owner);
+    const targetMode = actor?.character_key === "archer" && ui.selectedSkillTier === "large";
 
     const board = (viewport.cells || []).map((cell) => {
       const key = `${cell[0]},${cell[1]}`;
@@ -414,7 +457,7 @@
         actor && unit && unit.id === actor.id ? "is-current-actor" : "",
       ].filter(Boolean).join(" ");
       return `
-        <button type="button" class="${classes}" data-grand-cell="${cell[0]},${cell[1]}" ${reachable.has(key) ? "" : "disabled"}>
+        <button type="button" class="${classes}" data-grand-cell="${cell[0]},${cell[1]}" ${(reachable.has(key) || targetMode) ? "" : "disabled"}>
           ${flag ? `<span class="grand2-flag team-${String(flag.team).toLowerCase()}">⚑</span>` : ""}
           ${unit ? `<img src="${spritePath(unit.character_key)}" alt="${escapeHtml(unit.name)}" class="grand2-unit-sprite">` : ""}
         </button>
@@ -447,6 +490,64 @@
             </div>
           ` : `<p class="grand2-copy">行動できるキャラがいません。</p>`}
           <div class="grand2-action-row">
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "" ? "is-selected" : ""}" data-grand-tier="">移動</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "small" ? "is-selected" : ""}" data-grand-tier="small">小技</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "medium" ? "is-selected" : ""}" data-grand-tier="medium">中技</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "large" ? "is-selected" : ""}" data-grand-tier="large">大技</button>
+          </div>
+          ${skill ? `
+            <div class="grand2-skill-editor">
+              <strong>${escapeHtml(skill.name)} / コスト ${skill.cost}</strong>
+              <p>${escapeHtml(skill.description || "")}</p>
+              ${actor?.character_key === "spiritualist" && ui.selectedSkillTier === "medium" ? `
+                <label>対象の敵
+                  <select data-grand-skill-target>
+                    <option value="">選択してください</option>
+                    ${enemies.map((unit) => `<option value="${escapeHtml(unit.id)}" ${ui.skillTargetUnitId === unit.id ? "selected" : ""}>${escapeHtml(unit.display_name)}</option>`).join("")}
+                  </select>
+                </label>
+              ` : ""}
+              ${actor?.character_key === "archer" && ui.selectedSkillTier === "large" ? `
+                <p class="grand2-copy">盤面を押して狙点を選びます。選んだ点から先まで直線が伸びます。</p>
+                <p class="grand2-copy">${ui.skillTargetCell ? `狙点: ${ui.skillTargetCell[0] + 1},${ui.skillTargetCell[1] + 1}` : "狙点未選択"}</p>
+              ` : ""}
+              ${actor?.character_key === "speed_star" && ui.selectedSkillTier === "large" ? `
+                <div class="grand2-action-row">
+                  <select data-grand-skill-direction>
+                    <option value="up" ${ui.skillDirection === "up" ? "selected" : ""}>上</option>
+                    <option value="right" ${ui.skillDirection === "right" ? "selected" : ""}>右</option>
+                    <option value="down" ${ui.skillDirection === "down" ? "selected" : ""}>下</option>
+                    <option value="left" ${ui.skillDirection === "left" ? "selected" : ""}>左</option>
+                  </select>
+                  <input type="number" min="1" max="${game.board_size || 50}" value="${ui.skillDistance}" data-grand-skill-distance />
+                </div>
+              ` : ""}
+              ${actor?.character_key === "leader" && ui.selectedSkillTier === "medium" ? `
+                <div class="grand2-select-list">
+                  ${Array.from({ length: Math.max(0, 10 - game.round_number) }, (_, index) => {
+                    const turnNo = game.round_number + 1 + index;
+                    const selected = ui.leaderReconfigure[String(turnNo)] || "";
+                    return `<label>${turnNo}ターン目<select data-grand-reconfigure-turn="${turnNo}">
+                      <option value="">選択してください</option>
+                      ${allies.map((unit) => `<option value="${escapeHtml(unit.id)}" ${selected === unit.id ? "selected" : ""}>${escapeHtml(unit.display_name)}</option>`).join("")}
+                    </select></label>`;
+                  }).join("")}
+                </div>
+              ` : ""}
+              ${actor?.character_key === "leader" && ui.selectedSkillTier === "large" ? `
+                <div class="grand2-select-list">
+                  ${allies.map((unit) => {
+                    const selected = ui.leaderRedeploy[unit.id] || "";
+                    return `<label>${escapeHtml(unit.display_name)}<select data-grand-redeploy-unit="${escapeHtml(unit.id)}">
+                      <option value="">選択してください</option>
+                      ${allies.map((target) => `<option value="${escapeHtml(target.id)}" ${selected === target.id ? "selected" : ""}>${escapeHtml(target.display_name)} の位置</option>`).join("")}
+                    </select></label>`;
+                  }).join("")}
+                </div>
+              ` : ""}
+            </div>
+          ` : ""}
+          <div class="grand2-action-row">
             <button type="button" class="primary" data-grand-clear ${game.viewer_waiting || game.result_ready ? "disabled" : ""}>入力クリア</button>
             <button type="button" class="primary" data-grand-submit ${game.viewer_waiting || game.result_ready || !actor ? "disabled" : ""}>この行動で決定</button>
           </div>
@@ -455,7 +556,7 @@
               <button type="button" class="primary" data-grand-confirm-result ${game.viewer_continue_confirmed ? "disabled" : ""}>結果を確認して次へ</button>
             </div>
           ` : ""}
-          <p class="grand2-copy">今回は移動のみの最小戦闘ループです。技は次の段階で本編へ戻します。</p>
+          <p class="grand2-copy">移動と技を選んで決定します。必要な対象指定は下の補助入力で行います。</p>
           <p class="grand2-eyebrow">全体マップ</p>
           <div class="grand2-mini-wrap">
             <div class="grand2-mini-board" style="--mini-size:${minimap.size};">${minimap.html}</div>
@@ -483,12 +584,44 @@
     root.querySelectorAll("[data-grand-cell]").forEach((button) => {
       button.addEventListener("click", () => {
         const [x, y] = (button.dataset.grandCell || "").split(",").map(Number);
-        ui.path = [...ui.path, [x, y]];
+        if (actor?.character_key === "archer" && ui.selectedSkillTier === "large") {
+          ui.skillTargetCell = [x, y];
+        } else {
+          ui.path = [...ui.path, [x, y]];
+        }
         renderGrandGame(game);
+      });
+    });
+    root.querySelectorAll("[data-grand-tier]").forEach((button) => {
+      button.addEventListener("click", () => {
+        ui.selectedSkillTier = button.dataset.grandTier || "";
+        ui.path = [];
+        ui.skillTargetCell = null;
+        renderGrandGame(game);
+      });
+    });
+    root.querySelector("[data-grand-skill-target]")?.addEventListener("change", (event) => {
+      ui.skillTargetUnitId = event.target.value;
+    });
+    root.querySelector("[data-grand-skill-direction]")?.addEventListener("change", (event) => {
+      ui.skillDirection = event.target.value;
+    });
+    root.querySelector("[data-grand-skill-distance]")?.addEventListener("input", (event) => {
+      ui.skillDistance = Number(event.target.value || 1);
+    });
+    root.querySelectorAll("[data-grand-reconfigure-turn]").forEach((select) => {
+      select.addEventListener("change", (event) => {
+        ui.leaderReconfigure[event.target.dataset.grandReconfigureTurn] = event.target.value;
+      });
+    });
+    root.querySelectorAll("[data-grand-redeploy-unit]").forEach((select) => {
+      select.addEventListener("change", (event) => {
+        ui.leaderRedeploy[event.target.dataset.grandRedeployUnit] = event.target.value;
       });
     });
     root.querySelector("[data-grand-clear]")?.addEventListener("click", () => {
       ui.path = [];
+      ui.skillTargetCell = null;
       renderGrandGame(game);
     });
     root.querySelector("[data-grand-submit]")?.addEventListener("click", () => {
@@ -497,6 +630,13 @@
         settings: {
           actor_id: game.viewer_actor_id,
           path: ui.path,
+          skill_tier: ui.selectedSkillTier,
+          skill_target_unit_id: ui.skillTargetUnitId,
+          skill_target_cell: ui.skillTargetCell,
+          skill_direction: ui.skillDirection,
+          skill_distance: ui.skillDistance,
+          leader_reconfigure: ui.leaderReconfigure,
+          leader_redeploy: ui.leaderRedeploy,
         },
       });
     });

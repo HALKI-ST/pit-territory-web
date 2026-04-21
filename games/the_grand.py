@@ -1343,6 +1343,17 @@ class TheGrandGame:
         known_floor = set(self.known_floor_by_team.get(viewer_symbol, set()))
         known_walls = set(self.known_walls_by_team.get(viewer_symbol, set()))
         known_coins = set(self.known_coins_by_team.get(viewer_symbol, set()))
+        bind_target_options = []
+        if viewer_symbol in TEAM_SYMBOLS:
+            bind_target_options = [
+                {
+                    "id": unit.id,
+                    "display_name": unit.display_name,
+                    "team": unit.team,
+                }
+                for unit in self._living_units()
+                if unit.owner != viewer_symbol
+            ]
         visible_units: Dict[str, dict] = {}
         for unit_id, unit in self.units.items():
             if not unit.alive:
@@ -1395,6 +1406,7 @@ class TheGrandGame:
             "known_floor": [list(cell) for cell in sorted(known_floor)],
             "known_walls": [list(cell) for cell in sorted(known_walls)],
             "known_coins": [list(cell) for cell in sorted(known_coins)],
+            "bind_target_options": bind_target_options,
             "bird_snapshot": self.bird_snapshots.get(viewer_symbol),
             "viewport": self._viewport_for(actor_id) if actor_id else {"origin": [0, 0], "cells": [], "visible_cells": []},
         }

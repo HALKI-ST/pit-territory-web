@@ -165,7 +165,7 @@
 
   function reachableSet(game, actor) {
     const result = new Set();
-    if (!actor || game.viewer_waiting || game.result_ready) return result;
+    if (!actor || game.result_ready) return result;
     const walls = wallsSet(game);
     const current = ui.path.length ? ui.path[ui.path.length - 1] : actor.cell;
     const remaining = stepLimit(actor) - ui.path.length;
@@ -429,6 +429,7 @@
   function renderBattle(game) {
     syncBattleInput(game);
     const actor = currentActor(game);
+    const actorCatalog = actor ? characterByKey(game, actor.character_key) : null;
     const viewport = game.viewport || { cells: [], visible_cells: [] };
     const visible = visibleSet(game);
     const walls = wallsSet(game);
@@ -438,6 +439,7 @@
     const reachable = reachableSet(game, actor);
     const skill = selectedSkill(actor);
     const enemies = Object.values(game.units || {}).filter((unit) => unit?.alive && actor && unit.owner !== actor.owner);
+    const bindTargets = game.bind_target_options || enemies;
     const allies = Object.values(game.units || {}).filter((unit) => unit?.alive && actor && unit.owner === actor.owner);
     const targetMode = actor?.character_key === "archer" && ui.selectedSkillTier === "large";
 
@@ -491,9 +493,9 @@
           ` : `<p class="grand2-copy">行動できるキャラがいません。</p>`}
           <div class="grand2-action-row">
             <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "" ? "is-selected" : ""}" data-grand-tier="">移動</button>
-            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "small" ? "is-selected" : ""}" data-grand-tier="small">小技</button>
-            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "medium" ? "is-selected" : ""}" data-grand-tier="medium">中技</button>
-            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "large" ? "is-selected" : ""}" data-grand-tier="large">大技</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "small" ? "is-selected" : ""}" data-grand-tier="small" ${!actorCatalog?.small || actor.cost < Number(actorCatalog.small.cost || 0) ? "disabled" : ""}>${actorCatalog?.small ? `小技 / ${escapeHtml(actorCatalog.small.name)} (${actorCatalog.small.cost})` : "小技"}</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "medium" ? "is-selected" : ""}" data-grand-tier="medium" ${!actorCatalog?.medium || actor.cost < Number(actorCatalog.medium.cost || 0) ? "disabled" : ""}>${actorCatalog?.medium ? `中技 / ${escapeHtml(actorCatalog.medium.name)} (${actorCatalog.medium.cost})` : "中技"}</button>
+            <button type="button" class="grand2-mode-button ${ui.selectedSkillTier === "large" ? "is-selected" : ""}" data-grand-tier="large" ${!actorCatalog?.large || actor.cost < Number(actorCatalog.large.cost || 0) ? "disabled" : ""}>${actorCatalog?.large ? `大技 / ${escapeHtml(actorCatalog.large.name)} (${actorCatalog.large.cost})` : "大技"}</button>
           </div>
           ${skill ? `
             <div class="grand2-skill-editor">
@@ -503,7 +505,7 @@
                 <label>対象の敵
                   <select data-grand-skill-target>
                     <option value="">選択してください</option>
-                    ${enemies.map((unit) => `<option value="${escapeHtml(unit.id)}" ${ui.skillTargetUnitId === unit.id ? "selected" : ""}>${escapeHtml(unit.display_name)}</option>`).join("")}
+                      ${bindTargets.map((unit) => `<option value="${escapeHtml(unit.id)}" ${ui.skillTargetUnitId === unit.id ? "selected" : ""}>${escapeHtml(unit.display_name)}</option>`).join("")}
                   </select>
                 </label>
               ` : ""}
@@ -548,8 +550,8 @@
             </div>
           ` : ""}
           <div class="grand2-action-row">
-            <button type="button" class="primary" data-grand-clear ${game.viewer_waiting || game.result_ready ? "disabled" : ""}>入力クリア</button>
-            <button type="button" class="primary" data-grand-submit ${game.viewer_waiting || game.result_ready || !actor ? "disabled" : ""}>この行動で決定</button>
+            <button type="button" class="primary" data-grand-clear ${game.result_ready ? "disabled" : ""}>入力クリア</button>
+            <button type="button" class="primary" data-grand-submit ${game.result_ready || !actor ? "disabled" : ""}>この行動で決定</button>
           </div>
           ${game.result_ready ? `
             <div class="grand2-action-row">
@@ -559,7 +561,7 @@
           <p class="grand2-copy">移動と技を選んで決定します。必要な対象指定は下の補助入力で行います。</p>
           <p class="grand2-eyebrow">全体マップ</p>
           <div class="grand2-mini-wrap">
-            <div class="grand2-mini-board" style="--mini-size:${minimap.size};">${minimap.html}</div>
+            <div class="grand2-mini-board" style="--mini-size:${minimap.size}; grid-template-columns: repeat(${minimap.size}, minmax(0, 1fr)); grid-template-rows: repeat(${minimap.size}, minmax(0, 1fr)); width: 176px; height: 176px;">${minimap.html}</div>
           </div>
           <div class="grand2-mini-legend">
             <span><i class="team-a"></i>青ユニット</span>

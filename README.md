@@ -93,3 +93,15 @@ GitHub に push したあと、Render でリポジトリをつなげば公開 UR
 3. `static/index.html` と `static/app.js` と `static/styles.css` に画面を追加します
 
 同じ URL の中でゲームを増やしていく方針に向いています。
+## Render deployment
+
+- `render.yaml` をそのまま使って `Web Service` を作成できます。
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `python -m uvicorn app:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/api/health`
+
+### Notes
+
+- ルーム状態はメモリ保存なので、Render の再起動や再デプロイ時には進行中ルームは消えます。
+- WebSocket を使っているため、Render では `Static Site` ではなく `Web Service` を選んでください。
+- Free プランではスリープ復帰直後の初回アクセスが少し遅くなることがあります。

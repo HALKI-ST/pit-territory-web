@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ST-SPACE Game Rooms</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260421-grand-visibility-team-1">
+  <link rel="stylesheet" href="/static/styles.css?v=20260430-spi-rush-1">
 </head>
 <body>
   <main class="shell">
@@ -664,6 +664,88 @@
         </aside>
       </div>
 
+      <div id="spiRushView" class="arena hidden">
+        <div class="board-wrap english-board-wrap spi-rush-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>分野</span>
+              <strong id="spiRushCategoryLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>問題</span>
+              <strong id="spiRushRoundLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>残り時間</span>
+              <strong id="spiRushTimerLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>トップ</span>
+              <strong id="spiRushLeaderLabel">-</strong>
+            </div>
+          </div>
+
+          <div class="english-question-card spi-rush-question-card">
+            <p class="eyebrow">Question</p>
+            <div class="english-question-head">
+              <div id="spiRushPhaseLabel" class="english-question-state">-</div>
+              <div id="spiRushCountdownLabel" class="english-question-countdown">-</div>
+            </div>
+            <div class="english-question-meter">
+              <div id="spiRushMeterFill" class="english-question-meter-fill"></div>
+            </div>
+            <div id="spiRushPromptLabel" class="english-word spi-rush-prompt">-</div>
+            <p id="spiRushExplanationLabel" class="microcopy">-</p>
+          </div>
+
+          <div id="spiRushChoices" class="spi-rush-choices"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="spiRushStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <div class="english-settings-grid">
+              <label class="field">
+                <span>出題分野</span>
+                <select id="spiRushCategoryInput">
+                  <option value="mixed">ミックス</option>
+                  <option value="verbal">言語</option>
+                  <option value="nonverbal">非言語</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>問題数</span>
+                <input id="spiRushQuestionCountInput" type="number" min="5" max="30" step="1" value="12">
+              </label>
+              <label class="field">
+                <span>制限時間(秒)</span>
+                <input id="spiRushTimeLimitInput" type="number" min="5" max="25" step="1" value="12">
+              </label>
+            </div>
+            <button id="spiRushStartButton" class="primary">この設定で開始</button>
+            <p class="microcopy">早押しで正解した人に高得点が入ります。誤答は少し減点されます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">操作</p>
+            <div class="action-grid">
+              <button id="spiRushResignButton" class="danger">終了する</button>
+            </div>
+            <p class="microcopy">問題切り替えは部屋主が自動で進めます。ソロでもそのまま遊べます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">スコアボード</p>
+            <div id="spiRushPlayersPanel" class="english-players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">対戦ログ</p>
+            <div id="spiRushHistoryPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
+
       <div id="fiveRulerView" class="arena hidden">
         <div class="board-wrap">
           <div class="english-topline">
@@ -787,11 +869,135 @@
         </aside>
       </div>
 
+      <div id="battleLineView" class="arena hidden">
+        <div class="board-wrap battle-line-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>手番</span>
+              <strong id="battleLineTurnChip">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>山札</span>
+              <strong id="battleLineDeckChip">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>あなたの旗</span>
+              <strong id="battleLineClaimChip">-</strong>
+            </div>
+          </div>
+
+          <div id="battleLineFlags" class="battle-line-flags"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="battleLineStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <button id="battleLineStartButton" class="primary">このメンバーで始める</button>
+            <p id="battleLineStartNote" class="microcopy">2人そろったら開始できます。</p>
+          </div>
+
+          <div id="battleLineRematchPanel" class="panel-block hidden">
+            <p class="eyebrow">再戦</p>
+            <button id="battleLineRematchButton" class="primary">同じ部屋で再戦</button>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">手札</p>
+            <p class="microcopy">選択中: <span id="battleLineSelectedCard">なし</span></p>
+            <div id="battleLineHand" class="battle-line-hand"></div>
+            <div class="action-grid">
+              <button id="battleLineResignButton" class="danger">降参する</button>
+            </div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">プレイヤー</p>
+            <div id="battleLinePlayers" class="players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ログ</p>
+            <div id="battleLineHistory" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="ikoView" class="arena hidden">
+        <div class="board-wrap iko-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>ラウンド</span>
+              <strong id="ikoRoundChip">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>お題</span>
+              <strong id="ikoTopicChip">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>連続成功</span>
+              <strong id="ikoStreakChip">-</strong>
+            </div>
+          </div>
+
+          <div class="morning-prompt-card">
+            <p class="eyebrow">あなたの秘密数字</p>
+            <h3 id="ikoSecretNumber">-</h3>
+            <p class="microcopy">数字そのものは言わず、お題に沿った一言で伝えます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">相談して作る並び順</p>
+            <div id="ikoArrangement" class="iko-arrangement"></div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="ikoStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <label class="field">
+              <span>お題を指定する</span>
+              <input id="ikoTopicInput" maxlength="24" placeholder="空欄ならランダム">
+            </label>
+            <button id="ikoStartButton" class="primary">このメンバーで始める</button>
+            <p id="ikoStartNote" class="microcopy">部屋主が始めるまで待機してください。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ヒント提出</p>
+            <label class="field">
+              <span>あなたの一言</span>
+              <input id="ikoClueInput" maxlength="40" placeholder="例: 真夜中の公園">
+            </label>
+            <div class="action-grid">
+              <button id="ikoSubmitButton" class="primary">ヒントを出す</button>
+              <button id="ikoRevealButton">この並びで公開</button>
+              <button id="ikoResignButton" class="danger">退室する</button>
+            </div>
+          </div>
+
+          <div id="ikoResultPanel" class="panel-block hidden">
+            <p class="eyebrow">次のラウンド</p>
+            <button id="ikoNextRoundButton" class="primary">次の数字で続ける</button>
+            <p class="microcopy">部屋主が押すと、新しい数字で次ラウンドが始まります。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">参加者</p>
+            <div id="ikoPlayers" class="players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">ログ</p>
+            <div id="ikoHistory" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
+
       <div id="grandGameView" class="arena hidden"></div>
     </section>
   </main>
 
-    <script src="/static/app.js?v=20260420-grand-rebuild2"></script>
+    <script src="/static/app.js?v=20260430-spi-rush-1"></script>
     <script src="/static/the_grand.js?v=20260421-grand-turn-submit-bind-1"></script>
 </body>
 </html>

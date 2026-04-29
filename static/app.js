@@ -16,6 +16,7 @@ const state = {
   englishWordListOpen: false,
   englishWordListCache: null,
   fiveRulerDraft: {},
+  battleLineSelectedCard: null,
 };
 
 const boardEl = document.getElementById("board");
@@ -26,11 +27,14 @@ const wordSpyBoardEl = document.getElementById("wordSpyBoard");
 const morningSeatRingEl = document.getElementById("morningSeatRing");
 const gameSectionEl = document.getElementById("gameSection");
 const pitGameViewEl = document.getElementById("pitGameView");
+const battleLineViewEl = document.getElementById("battleLineView");
+const ikoViewEl = document.getElementById("ikoView");
 const auctionGameViewEl = document.getElementById("auctionGameView");
 const mouseTrapViewEl = document.getElementById("mouseTrapView");
 const wordSpyViewEl = document.getElementById("wordSpyView");
 const morningAnswerViewEl = document.getElementById("morningAnswerView");
 const englishShooterViewEl = document.getElementById("englishShooterView");
+const spiRushViewEl = document.getElementById("spiRushView");
 const fiveRulerViewEl = document.getElementById("fiveRulerView");
 const grandGameViewEl = document.getElementById("grandGameView");
 const gameSelectEl = document.getElementById("gameSelect");
@@ -99,6 +103,32 @@ const morningAnswersPanelEl = document.getElementById("morningAnswersPanel");
 const morningStartPanelEl = document.getElementById("morningStartPanel");
 const morningWinnerPickerEl = document.getElementById("morningWinnerPicker");
 const morningHistoryPanelEl = document.getElementById("morningHistoryPanel");
+const battleLineFlagsEl = document.getElementById("battleLineFlags");
+const battleLineHandEl = document.getElementById("battleLineHand");
+const battleLinePlayersEl = document.getElementById("battleLinePlayers");
+const battleLineHistoryEl = document.getElementById("battleLineHistory");
+const battleLineTurnChipEl = document.getElementById("battleLineTurnChip");
+const battleLineDeckChipEl = document.getElementById("battleLineDeckChip");
+const battleLineClaimChipEl = document.getElementById("battleLineClaimChip");
+const ikoRoundChipEl = document.getElementById("ikoRoundChip");
+const ikoTopicChipEl = document.getElementById("ikoTopicChip");
+const ikoStreakChipEl = document.getElementById("ikoStreakChip");
+const ikoSecretNumberEl = document.getElementById("ikoSecretNumber");
+const ikoArrangementEl = document.getElementById("ikoArrangement");
+const ikoPlayersEl = document.getElementById("ikoPlayers");
+const ikoHistoryEl = document.getElementById("ikoHistory");
+const spiRushCategoryLabelEl = document.getElementById("spiRushCategoryLabel");
+const spiRushRoundLabelEl = document.getElementById("spiRushRoundLabel");
+const spiRushTimerLabelEl = document.getElementById("spiRushTimerLabel");
+const spiRushLeaderLabelEl = document.getElementById("spiRushLeaderLabel");
+const spiRushPhaseLabelEl = document.getElementById("spiRushPhaseLabel");
+const spiRushCountdownLabelEl = document.getElementById("spiRushCountdownLabel");
+const spiRushMeterFillEl = document.getElementById("spiRushMeterFill");
+const spiRushPromptLabelEl = document.getElementById("spiRushPromptLabel");
+const spiRushExplanationLabelEl = document.getElementById("spiRushExplanationLabel");
+const spiRushChoicesEl = document.getElementById("spiRushChoices");
+const spiRushPlayersPanelEl = document.getElementById("spiRushPlayersPanel");
+const spiRushHistoryPanelEl = document.getElementById("spiRushHistoryPanel");
 const fiveRulerEls = {
   phaseLabel: document.getElementById("fiveRulerPhaseLabel"),
   setLabel: document.getElementById("fiveRulerSetLabel"),
@@ -594,6 +624,7 @@ function enterRoom(roomCode, token, symbol, gameType, viewerRole = "player", vie
   state.auctionSettingsOpen = false;
   state.replayTurn = 0;
   state.fiveRulerDraft = {};
+  state.battleLineSelectedCard = null;
   roomCodeLabelEl.textContent = `ルームID: ${roomCode}`;
   youAreEl.textContent = viewerRole === "spectator" ? "観戦" : `${symbol} プレイヤー`;
   setMode("move");
@@ -720,16 +751,23 @@ function render() {
   }
 
   pitGameViewEl.classList.toggle("hidden", game.game_type !== "pit_territory");
+  battleLineViewEl.classList.toggle("hidden", game.game_type !== "battle_line");
+  ikoViewEl.classList.toggle("hidden", game.game_type !== "iko");
   auctionGameViewEl.classList.toggle("hidden", game.game_type !== "auction_race");
   mouseTrapViewEl.classList.toggle("hidden", game.game_type !== "mouse_trap");
   wordSpyViewEl.classList.toggle("hidden", game.game_type !== "word_spy");
   morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
   englishShooterViewEl.classList.toggle("hidden", game.game_type !== "english_shooter");
+  spiRushViewEl.classList.toggle("hidden", game.game_type !== "spi_rush");
   fiveRulerViewEl.classList.toggle("hidden", !isFiveRulerType(game.game_type));
   grandGameViewEl.classList.toggle("hidden", !["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type));
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
+  } else if (game.game_type === "battle_line") {
+    renderBattleLine(game);
+  } else if (game.game_type === "iko") {
+    renderIko(game);
   } else if (game.game_type === "auction_race") {
     renderAuctionRace(game, myPlayer);
   } else if (game.game_type === "mouse_trap") {
@@ -740,6 +778,8 @@ function render() {
     renderMorningAnswer(game);
   } else if (game.game_type === "english_shooter") {
     renderEnglishShooter(game);
+  } else if (game.game_type === "spi_rush") {
+    renderSpiRush(game);
   } else if (isFiveRulerType(game.game_type)) {
     renderFiveRuler(game);
   } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type) && typeof renderGrandGame === "function") {
@@ -775,6 +815,10 @@ function render() {
 
   if (game.game_type === "pit_territory") {
     lockActionArea(pitGameViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "battle_line") {
+    lockActionArea(battleLineViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "iko") {
+    lockActionArea(ikoViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (game.game_type === "auction_race") {
     lockActionArea(auctionGameViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (game.game_type === "mouse_trap") {
@@ -785,11 +829,316 @@ function render() {
     lockActionArea(morningAnswerViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (game.game_type === "english_shooter") {
     lockActionArea(englishShooterViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "spi_rush") {
+    lockActionArea(spiRushViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (isFiveRulerType(game.game_type)) {
     lockActionArea(fiveRulerViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type)) {
     lockActionArea(grandGameViewEl.querySelector(".side-panel"), isSpectator(game));
   }
+}
+
+function battleLineCardLabel(card) {
+  if (!card) return "-";
+  return `${card.color_label || ""}${card.strength || ""}`;
+}
+
+function renderBattleLine(game) {
+  const myPlayer = currentPlayerState() || {};
+  const host = isHost(game);
+  const myClaims = (game.claimed_flags?.[state.playerSymbol] || []).length;
+  battleLineTurnChipEl.textContent = game.game_over
+    ? "決着"
+    : game.turn && game.players?.[game.turn]
+      ? game.players[game.turn].name
+      : "-";
+  battleLineDeckChipEl.textContent = `${game.deck_count ?? 0} 枚`;
+  battleLineClaimChipEl.textContent = `${myClaims} 本`;
+
+  const startPanel = document.getElementById("battleLineStartPanel");
+  const rematchPanel = document.getElementById("battleLineRematchPanel");
+  const selectedLabel = document.getElementById("battleLineSelectedCard");
+  const noteLabel = document.getElementById("battleLineStartNote");
+  startPanel.classList.toggle("hidden", game.started);
+  rematchPanel.classList.toggle("hidden", !game.game_over);
+  noteLabel.textContent = host
+    ? "2人そろったら開始できます。"
+    : "部屋主が開始すると戦線が始まります。";
+  selectedLabel.textContent = state.battleLineSelectedCard == null || !myPlayer.hand?.[state.battleLineSelectedCard]
+    ? "なし"
+    : battleLineCardLabel(myPlayer.hand[state.battleLineSelectedCard]);
+
+  battleLinePlayersEl.innerHTML = "";
+  for (const symbol of ["A", "B"]) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const card = document.createElement("div");
+    card.className = `player-card ${symbol === state.playerSymbol ? "active" : ""}`;
+    const claims = (game.claimed_flags?.[symbol] || []).map((index) => index + 1).join(", ");
+    card.innerHTML = `
+      <strong>${player.name} (${symbol})</strong>
+      <div>接続: ${player.connected ? "接続中" : "オフライン"}</div>
+      <div>手札: ${player.hand_count} 枚</div>
+      <div>旗: ${claims || "なし"}</div>
+    `;
+    battleLinePlayersEl.appendChild(card);
+  }
+
+  battleLineHandEl.innerHTML = "";
+  (myPlayer.hand || []).forEach((card, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `battle-line-hand-card color-${card.color} ${state.battleLineSelectedCard === index ? "selected" : ""}`;
+    button.innerHTML = `<strong>${battleLineCardLabel(card)}</strong><span>${card.color_label}</span>`;
+    button.addEventListener("click", () => {
+      state.battleLineSelectedCard = state.battleLineSelectedCard === index ? null : index;
+      render();
+    });
+    battleLineHandEl.appendChild(button);
+  });
+
+  battleLineFlagsEl.innerHTML = "";
+  for (const flag of game.flags || []) {
+    const flagEl = document.createElement("div");
+    flagEl.className = `battle-line-flag ${flag.claimed_by ? `claimed-${flag.claimed_by.toLowerCase()}` : ""}`;
+
+    const header = document.createElement("div");
+    header.className = "battle-line-flag-head";
+    const ownerName = flag.claimed_by && game.players?.[flag.claimed_by]
+      ? `${game.players[flag.claimed_by].name} 取得`
+      : "未確保";
+    header.innerHTML = `<strong>旗 ${flag.index + 1}</strong><span>${ownerName}</span>`;
+    flagEl.appendChild(header);
+
+    for (const symbol of ["B", "A"]) {
+      const lane = document.createElement("div");
+      lane.className = `battle-line-lane side-${symbol.toLowerCase()}`;
+      const label = document.createElement("div");
+      label.className = "battle-line-lane-label";
+      label.textContent = game.players?.[symbol]?.name || symbol;
+      lane.appendChild(label);
+
+      const row = document.createElement("div");
+      row.className = "battle-line-card-row";
+      for (const card of flag.cards?.[symbol] || []) {
+        const cardEl = document.createElement("div");
+        cardEl.className = `battle-line-board-card color-${card.color}`;
+        cardEl.textContent = battleLineCardLabel(card);
+        row.appendChild(cardEl);
+      }
+      for (let index = (flag.cards?.[symbol] || []).length; index < 3; index += 1) {
+        const slot = document.createElement("div");
+        slot.className = "battle-line-empty-slot";
+        slot.textContent = " ";
+        row.appendChild(slot);
+      }
+      lane.appendChild(row);
+
+      const formation = document.createElement("small");
+      formation.className = "microcopy";
+      formation.textContent = flag.formation?.[symbol] || " ";
+      lane.appendChild(formation);
+      flagEl.appendChild(lane);
+    }
+
+    const actionRow = document.createElement("div");
+    actionRow.className = "battle-line-flag-actions";
+    const playButton = document.createElement("button");
+    playButton.type = "button";
+    playButton.className = "primary";
+    playButton.textContent = "ここに出す";
+    playButton.disabled = (
+      !game.started
+      || game.game_over
+      || game.turn !== state.playerSymbol
+      || state.battleLineSelectedCard == null
+      || Boolean(flag.claimed_by)
+    );
+    playButton.addEventListener("click", () => {
+      if (state.battleLineSelectedCard == null) return;
+      sendAction({
+        action: "play_card",
+        card_index: state.battleLineSelectedCard,
+        selected_cards: [flag.index],
+      });
+      state.battleLineSelectedCard = null;
+    });
+    actionRow.appendChild(playButton);
+    flagEl.appendChild(actionRow);
+    battleLineFlagsEl.appendChild(flagEl);
+  }
+
+  renderSimpleLog(battleLineHistoryEl, game.history || []);
+  turnLabelEl.textContent = game.game_over
+    ? "決着"
+    : game.turn && game.players?.[game.turn]
+      ? `手番: ${game.players[game.turn].name}`
+      : "開始前";
+}
+
+function renderIko(game) {
+  const host = isHost(game);
+  const startPanel = document.getElementById("ikoStartPanel");
+  const resultPanel = document.getElementById("ikoResultPanel");
+  const clueInput = document.getElementById("ikoClueInput");
+  const submitButton = document.getElementById("ikoSubmitButton");
+  const revealButton = document.getElementById("ikoRevealButton");
+  const nextRoundButton = document.getElementById("ikoNextRoundButton");
+
+  ikoRoundChipEl.textContent = game.round_number || "-";
+  ikoTopicChipEl.textContent = game.topic || "-";
+  ikoStreakChipEl.textContent = `${game.success_streak || 0} 回`;
+  ikoSecretNumberEl.textContent = game.started && game.viewer_secret_number ? game.viewer_secret_number : "-";
+
+  startPanel.classList.toggle("hidden", game.started);
+  resultPanel.classList.toggle("hidden", game.phase !== "result");
+  submitButton.disabled = game.phase !== "clueing" || game.viewer_has_submitted;
+  clueInput.disabled = game.phase !== "clueing" || game.viewer_has_submitted;
+  revealButton.disabled = game.phase !== "arranging";
+  nextRoundButton.disabled = !host || game.phase !== "result";
+
+  const startNote = document.getElementById("ikoStartNote");
+  startNote.textContent = host
+    ? "お題を自由入力するか空欄のまま始めるとランダムになります。"
+    : "部屋主が始めるまで待機してください。";
+
+  ikoPlayersEl.innerHTML = "";
+  for (const symbol of game.player_order || []) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const item = document.createElement("div");
+    item.className = `player-card ${symbol === state.playerSymbol ? "active" : ""}`;
+    const submission = game.submissions?.[symbol];
+    item.innerHTML = `
+      <strong>${player.name}</strong>
+      <div>接続: ${player.connected ? "接続中" : "オフライン"}</div>
+      <div>ヒント: ${submission?.submitted ? "提出済み" : "未提出"}</div>
+    `;
+    ikoPlayersEl.appendChild(item);
+  }
+
+  ikoArrangementEl.innerHTML = "";
+  for (const item of game.arrangement || []) {
+    const card = document.createElement("div");
+    card.className = `iko-arrangement-card ${game.phase === "result" ? (item.correct ? "correct" : "wrong") : ""}`;
+    const body = document.createElement("div");
+    body.className = "iko-arrangement-copy";
+    body.innerHTML = `
+      <strong>${item.name}</strong>
+      <p>${item.clue || "まだ未提出"}</p>
+      <small>${game.phase === "result" && item.number != null ? `数字: ${item.number}` : " "}</small>
+    `;
+    card.appendChild(body);
+
+    const controls = document.createElement("div");
+    controls.className = "iko-arrangement-controls";
+    const leftButton = document.createElement("button");
+    leftButton.type = "button";
+    leftButton.textContent = "←";
+    leftButton.disabled = game.phase !== "arranging" || item.position === 0;
+    leftButton.addEventListener("click", () => sendAction({ action: "move_clue", card_index: item.position, direction: "left" }));
+    const rightButton = document.createElement("button");
+    rightButton.type = "button";
+    rightButton.textContent = "→";
+    rightButton.disabled = game.phase !== "arranging" || item.position === (game.arrangement.length - 1);
+    rightButton.addEventListener("click", () => sendAction({ action: "move_clue", card_index: item.position, direction: "right" }));
+    controls.appendChild(leftButton);
+    controls.appendChild(rightButton);
+    card.appendChild(controls);
+    ikoArrangementEl.appendChild(card);
+  }
+
+  renderSimpleLog(ikoHistoryEl, game.history || []);
+  turnLabelEl.textContent = {
+    waiting: "開始前",
+    clueing: "ヒント提出",
+    arranging: "並べ替え",
+    result: "結果確認",
+  }[game.phase] || game.phase || "-";
+}
+
+function renderSpiRush(game) {
+  const host = isHost(game);
+  const startPanel = document.getElementById("spiRushStartPanel");
+  const categoryInput = document.getElementById("spiRushCategoryInput");
+  const questionCountInput = document.getElementById("spiRushQuestionCountInput");
+  const timeLimitInput = document.getElementById("spiRushTimeLimitInput");
+  const startButton = document.getElementById("spiRushStartButton");
+  const secondsLeft = game.phase === "question" && game.question_deadline
+    ? Math.max(0, Math.ceil(game.question_deadline - Date.now() / 1000))
+    : game.phase === "reveal" && game.reveal_deadline
+      ? Math.max(0, Math.ceil(game.reveal_deadline - Date.now() / 1000))
+      : 0;
+  const totalSeconds = Math.max(1, Number(game.settings?.time_limit || 12));
+  const ratio = game.phase === "question"
+    ? Math.max(0, Math.min(100, (secondsLeft / totalSeconds) * 100))
+    : 100;
+  const categoryLabel = {
+    mixed: "ミックス",
+    verbal: "言語",
+    nonverbal: "非言語",
+  }[game.current_question?.category || game.settings?.category || "mixed"] || "-";
+  const phaseLabel = {
+    waiting: "開始前",
+    question: "早押し中",
+    reveal: "正解確認",
+    finished: "試合終了",
+  }[game.phase] || game.phase || "-";
+
+  startPanel.classList.toggle("hidden", (game.started && !game.game_over) || !host);
+  categoryInput.value = game.settings?.category || "mixed";
+  questionCountInput.value = String(game.settings?.question_count || 12);
+  timeLimitInput.value = String(game.settings?.time_limit || 12);
+  categoryInput.disabled = game.started && !game.game_over;
+  questionCountInput.disabled = game.started && !game.game_over;
+  timeLimitInput.disabled = game.started && !game.game_over;
+  startButton.disabled = !host;
+
+  spiRushCategoryLabelEl.textContent = categoryLabel;
+  spiRushRoundLabelEl.textContent = `${game.round_number || 0} / ${game.question_count || 0}`;
+  spiRushTimerLabelEl.textContent = `${secondsLeft}秒`;
+  spiRushLeaderLabelEl.textContent = game.leader_name
+    ? `${game.leader_name} (${game.leader_score || 0})`
+    : "-";
+  spiRushPhaseLabelEl.textContent = phaseLabel;
+  spiRushCountdownLabelEl.textContent = game.phase === "reveal" ? "解説表示" : "回答受付";
+  spiRushMeterFillEl.style.width = `${ratio}%`;
+  spiRushPromptLabelEl.textContent = game.current_question?.prompt || "開始前";
+  spiRushExplanationLabelEl.textContent = game.current_question?.explanation || "正解と解説はここに表示されます。";
+
+  spiRushChoicesEl.innerHTML = "";
+  (game.current_question?.choices || []).forEach((choice, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const answerState = game.answers_this_round?.[state.playerSymbol];
+    const hasAnswered = Boolean(answerState);
+    const isCorrectAnswer = game.current_question?.answer_index === index && (game.phase === "reveal" || game.game_over);
+    const isMine = answerState?.choice_index === index;
+    button.className = `spi-rush-choice ${isCorrectAnswer ? "correct" : ""} ${isMine && !isCorrectAnswer ? "chosen" : ""}`;
+    button.innerHTML = `<strong>${String.fromCharCode(65 + index)}</strong><span>${choice}</span>`;
+    button.disabled = game.phase !== "question" || hasAnswered || game.game_over;
+    button.addEventListener("click", () => sendAction({ action: "answer_choice", card_index: index }));
+    spiRushChoicesEl.appendChild(button);
+  });
+
+  spiRushPlayersPanelEl.innerHTML = "";
+  for (const symbol of game.player_order || []) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const item = document.createElement("div");
+    item.className = `english-player-card ${symbol === state.playerSymbol ? "you" : ""}`;
+    const answered = game.answers_this_round?.[symbol];
+    item.innerHTML = `
+      <strong>${player.name}</strong>
+      <span>${player.score} 点</span>
+      <span>連続 ${player.streak || 0}</span>
+      <span>${answered ? (answered.correct ? "正解" : "誤答") : "未回答"}</span>
+    `;
+    spiRushPlayersPanelEl.appendChild(item);
+  }
+
+  renderSimpleLog(spiRushHistoryPanelEl, game.history || []);
+  turnLabelEl.textContent = game.game_over ? "試合終了" : `${phaseLabel} / 第 ${game.round_number || 0} 問`;
 }
 
 function renderPitTerritory(game, myPlayer) {
@@ -2805,6 +3154,42 @@ document.getElementById("morningJudgeButton").addEventListener("click", () => {
   ).map((input) => input.value);
   sendAction({ action: "choose_winners", winner_symbols: checked });
 });
+document.getElementById("battleLineStartButton")?.addEventListener("click", () => sendAction({ action: "start_match" }));
+document.getElementById("battleLineRematchButton")?.addEventListener("click", () => {
+  state.battleLineSelectedCard = null;
+  sendAction({ action: "rematch" });
+});
+document.getElementById("battleLineResignButton")?.addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("ikoStartButton")?.addEventListener("click", () => {
+  sendAction({
+    action: "start_match",
+    settings: {
+      topic: document.getElementById("ikoTopicInput")?.value.trim() || "",
+    },
+  });
+});
+document.getElementById("ikoSubmitButton")?.addEventListener("click", () => {
+  sendAction({
+    action: "submit_clue",
+    answer_text: document.getElementById("ikoClueInput")?.value.trim() || "",
+  });
+});
+document.getElementById("ikoRevealButton")?.addEventListener("click", () => sendAction({ action: "reveal_order" }));
+document.getElementById("ikoNextRoundButton")?.addEventListener("click", () => {
+  sendAction({ action: "next_round" });
+});
+document.getElementById("ikoResignButton")?.addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("spiRushStartButton")?.addEventListener("click", () => {
+  sendAction({
+    action: "start_match",
+    settings: {
+      category: document.getElementById("spiRushCategoryInput")?.value || "mixed",
+      question_count: Number(document.getElementById("spiRushQuestionCountInput")?.value || 12),
+      time_limit: Number(document.getElementById("spiRushTimeLimitInput")?.value || 12),
+    },
+  });
+});
+document.getElementById("spiRushResignButton")?.addEventListener("click", () => sendAction({ action: "resign" }));
 document.getElementById("englishModeSelect").addEventListener("change", (event) => {
   updateEnglishShooterSettingsVisibility(event.target.value);
   pushEnglishShooterSettings();
@@ -2935,6 +3320,17 @@ window.setInterval(() => {
   }
   if (state.gameState?.game_type === "english_shooter" && state.gameState.started && !state.gameState.game_over) {
     render();
+  }
+  if (state.gameState?.game_type === "spi_rush" && state.gameState.started && !state.gameState.game_over) {
+    render();
+    if (isHost(state.gameState)) {
+      const now = Date.now() / 1000;
+      const questionExpired = state.gameState.phase === "question" && state.gameState.question_deadline && now >= state.gameState.question_deadline;
+      const revealExpired = state.gameState.phase === "reveal" && state.gameState.reveal_deadline && now >= state.gameState.reveal_deadline;
+      if (questionExpired || revealExpired) {
+        sendAction({ action: "next_question" });
+      }
+    }
   }
 }, 1000);
 

@@ -35,6 +35,7 @@ const wordSpyViewEl = document.getElementById("wordSpyView");
 const morningAnswerViewEl = document.getElementById("morningAnswerView");
 const englishShooterViewEl = document.getElementById("englishShooterView");
 const spiRushViewEl = document.getElementById("spiRushView");
+const toeicRushViewEl = document.getElementById("toeicRushView");
 const fiveRulerViewEl = document.getElementById("fiveRulerView");
 const grandGameViewEl = document.getElementById("grandGameView");
 const gameSelectEl = document.getElementById("gameSelect");
@@ -129,6 +130,18 @@ const spiRushExplanationLabelEl = document.getElementById("spiRushExplanationLab
 const spiRushChoicesEl = document.getElementById("spiRushChoices");
 const spiRushPlayersPanelEl = document.getElementById("spiRushPlayersPanel");
 const spiRushHistoryPanelEl = document.getElementById("spiRushHistoryPanel");
+const toeicRushCategoryLabelEl = document.getElementById("toeicRushCategoryLabel");
+const toeicRushRoundLabelEl = document.getElementById("toeicRushRoundLabel");
+const toeicRushTimerLabelEl = document.getElementById("toeicRushTimerLabel");
+const toeicRushLeaderLabelEl = document.getElementById("toeicRushLeaderLabel");
+const toeicRushPhaseLabelEl = document.getElementById("toeicRushPhaseLabel");
+const toeicRushCountdownLabelEl = document.getElementById("toeicRushCountdownLabel");
+const toeicRushMeterFillEl = document.getElementById("toeicRushMeterFill");
+const toeicRushPromptLabelEl = document.getElementById("toeicRushPromptLabel");
+const toeicRushExplanationLabelEl = document.getElementById("toeicRushExplanationLabel");
+const toeicRushChoicesEl = document.getElementById("toeicRushChoices");
+const toeicRushPlayersPanelEl = document.getElementById("toeicRushPlayersPanel");
+const toeicRushHistoryPanelEl = document.getElementById("toeicRushHistoryPanel");
 const fiveRulerEls = {
   phaseLabel: document.getElementById("fiveRulerPhaseLabel"),
   setLabel: document.getElementById("fiveRulerSetLabel"),
@@ -759,8 +772,9 @@ function render() {
   morningAnswerViewEl.classList.toggle("hidden", game.game_type !== "morning_answer");
   englishShooterViewEl.classList.toggle("hidden", game.game_type !== "english_shooter");
   spiRushViewEl.classList.toggle("hidden", game.game_type !== "spi_rush");
+  toeicRushViewEl.classList.toggle("hidden", game.game_type !== "toeic_rush");
   fiveRulerViewEl.classList.toggle("hidden", !isFiveRulerType(game.game_type));
-  grandGameViewEl.classList.toggle("hidden", !["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type));
+  grandGameViewEl.classList.toggle("hidden", !["the_grand", "the_grand_lab"].includes(game.game_type));
 
   if (game.game_type === "pit_territory") {
     renderPitTerritory(game, myPlayer);
@@ -780,9 +794,11 @@ function render() {
     renderEnglishShooter(game);
   } else if (game.game_type === "spi_rush") {
     renderSpiRush(game);
+  } else if (game.game_type === "toeic_rush") {
+    renderToeicRush(game);
   } else if (isFiveRulerType(game.game_type)) {
     renderFiveRuler(game);
-  } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type) && typeof renderGrandGame === "function") {
+  } else if (["the_grand", "the_grand_lab"].includes(game.game_type) && typeof renderGrandGame === "function") {
     renderGrandGame(game);
     if (false && game.game_type === "the_grand" && game.phase === "waiting" && !grandGameViewEl.querySelector('[data-grand-action="advance-phase"]')) {
       const isHostViewer = !isSpectator(game) && game.host_symbol === state.playerSymbol;
@@ -831,9 +847,11 @@ function render() {
     lockActionArea(englishShooterViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (game.game_type === "spi_rush") {
     lockActionArea(spiRushViewEl.querySelector(".side-panel"), isSpectator(game));
+  } else if (game.game_type === "toeic_rush") {
+    lockActionArea(toeicRushViewEl.querySelector(".side-panel"), isSpectator(game));
   } else if (isFiveRulerType(game.game_type)) {
     lockActionArea(fiveRulerViewEl.querySelector(".side-panel"), isSpectator(game));
-  } else if (["the_grand", "the_grand_lab", "the_grand_old"].includes(game.game_type)) {
+  } else if (["the_grand", "the_grand_lab"].includes(game.game_type)) {
     lockActionArea(grandGameViewEl.querySelector(".side-panel"), isSpectator(game));
   }
 }
@@ -1138,6 +1156,91 @@ function renderSpiRush(game) {
   }
 
   renderSimpleLog(spiRushHistoryPanelEl, game.history || []);
+  turnLabelEl.textContent = game.game_over ? "試合終了" : `${phaseLabel} / 第 ${game.round_number || 0} 問`;
+}
+
+function renderToeicRush(game) {
+  const host = isHost(game);
+  const startPanel = document.getElementById("toeicRushStartPanel");
+  const categoryInput = document.getElementById("toeicRushCategoryInput");
+  const questionCountInput = document.getElementById("toeicRushQuestionCountInput");
+  const timeLimitInput = document.getElementById("toeicRushTimeLimitInput");
+  const startButton = document.getElementById("toeicRushStartButton");
+  const secondsLeft = game.phase === "question" && game.question_deadline
+    ? Math.max(0, Math.ceil(game.question_deadline - Date.now() / 1000))
+    : game.phase === "reveal" && game.reveal_deadline
+      ? Math.max(0, Math.ceil(game.reveal_deadline - Date.now() / 1000))
+      : 0;
+  const totalSeconds = Math.max(1, Number(game.settings?.time_limit || 12));
+  const ratio = game.phase === "question"
+    ? Math.max(0, Math.min(100, (secondsLeft / totalSeconds) * 100))
+    : 100;
+  const categoryLabel = {
+    mixed: "ミックス",
+    vocabulary: "語彙",
+    grammar: "文法",
+    business: "ビジネス",
+  }[game.current_question?.category || game.settings?.category || "mixed"] || "-";
+  const phaseLabel = {
+    waiting: "待機中",
+    question: "出題中",
+    reveal: "解説表示",
+    finished: "試合終了",
+  }[game.phase] || game.phase || "-";
+
+  startPanel.classList.toggle("hidden", (game.started && !game.game_over) || !host);
+  categoryInput.value = game.settings?.category || "mixed";
+  questionCountInput.value = String(game.settings?.question_count || 12);
+  timeLimitInput.value = String(game.settings?.time_limit || 12);
+  categoryInput.disabled = game.started && !game.game_over;
+  questionCountInput.disabled = game.started && !game.game_over;
+  timeLimitInput.disabled = game.started && !game.game_over;
+  startButton.disabled = !host;
+
+  toeicRushCategoryLabelEl.textContent = categoryLabel;
+  toeicRushRoundLabelEl.textContent = `${game.round_number || 0} / ${game.question_count || 0}`;
+  toeicRushTimerLabelEl.textContent = `${secondsLeft}秒`;
+  toeicRushLeaderLabelEl.textContent = game.leader_name
+    ? `${game.leader_name} (${game.leader_score || 0})`
+    : "-";
+  toeicRushPhaseLabelEl.textContent = phaseLabel;
+  toeicRushCountdownLabelEl.textContent = game.phase === "reveal" ? "解説表示" : "残り時間";
+  toeicRushMeterFillEl.style.width = `${ratio}%`;
+  toeicRushPromptLabelEl.textContent = game.current_question?.prompt || "待機中";
+  toeicRushExplanationLabelEl.textContent = game.current_question?.explanation || "正解と解説はここに表示されます。";
+
+  toeicRushChoicesEl.innerHTML = "";
+  (game.current_question?.choices || []).forEach((choice, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const answerState = game.answers_this_round?.[state.playerSymbol];
+    const hasAnswered = Boolean(answerState);
+    const isCorrectAnswer = game.current_question?.answer_index === index && (game.phase === "reveal" || game.game_over);
+    const isMine = answerState?.choice_index === index;
+    button.className = `spi-rush-choice ${isCorrectAnswer ? "correct" : ""} ${isMine && !isCorrectAnswer ? "chosen" : ""}`;
+    button.innerHTML = `<strong>${String.fromCharCode(65 + index)}</strong><span>${choice}</span>`;
+    button.disabled = game.phase !== "question" || hasAnswered || game.game_over;
+    button.addEventListener("click", () => sendAction({ action: "answer_choice", card_index: index }));
+    toeicRushChoicesEl.appendChild(button);
+  });
+
+  toeicRushPlayersPanelEl.innerHTML = "";
+  for (const symbol of game.player_order || []) {
+    const player = game.players?.[symbol];
+    if (!player) continue;
+    const item = document.createElement("div");
+    item.className = `english-player-card ${symbol === state.playerSymbol ? "you" : ""}`;
+    const answered = game.answers_this_round?.[symbol];
+    item.innerHTML = `
+      <strong>${player.name}</strong>
+      <span>${player.score} 点</span>
+      <span>連続 ${player.streak || 0}</span>
+      <span>${answered ? (answered.correct ? "正解" : "不正解") : "未回答"}</span>
+    `;
+    toeicRushPlayersPanelEl.appendChild(item);
+  }
+
+  renderSimpleLog(toeicRushHistoryPanelEl, game.history || []);
   turnLabelEl.textContent = game.game_over ? "試合終了" : `${phaseLabel} / 第 ${game.round_number || 0} 問`;
 }
 
@@ -3190,6 +3293,17 @@ document.getElementById("spiRushStartButton")?.addEventListener("click", () => {
   });
 });
 document.getElementById("spiRushResignButton")?.addEventListener("click", () => sendAction({ action: "resign" }));
+document.getElementById("toeicRushStartButton")?.addEventListener("click", () => {
+  sendAction({
+    action: "start_match",
+    settings: {
+      category: document.getElementById("toeicRushCategoryInput")?.value || "mixed",
+      question_count: Number(document.getElementById("toeicRushQuestionCountInput")?.value || 12),
+      time_limit: Number(document.getElementById("toeicRushTimeLimitInput")?.value || 12),
+    },
+  });
+});
+document.getElementById("toeicRushResignButton")?.addEventListener("click", () => sendAction({ action: "resign" }));
 document.getElementById("englishModeSelect").addEventListener("change", (event) => {
   updateEnglishShooterSettingsVisibility(event.target.value);
   pushEnglishShooterSettings();
@@ -3322,6 +3436,17 @@ window.setInterval(() => {
     render();
   }
   if (state.gameState?.game_type === "spi_rush" && state.gameState.started && !state.gameState.game_over) {
+    render();
+    if (isHost(state.gameState)) {
+      const now = Date.now() / 1000;
+      const questionExpired = state.gameState.phase === "question" && state.gameState.question_deadline && now >= state.gameState.question_deadline;
+      const revealExpired = state.gameState.phase === "reveal" && state.gameState.reveal_deadline && now >= state.gameState.reveal_deadline;
+      if (questionExpired || revealExpired) {
+        sendAction({ action: "next_question" });
+      }
+    }
+  }
+  if (state.gameState?.game_type === "toeic_rush" && state.gameState.started && !state.gameState.game_over) {
     render();
     if (isHost(state.gameState)) {
       const now = Date.now() / 1000;

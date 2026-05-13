@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ST-SPACE Game Rooms</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260430-spi-rush-1">
+  <link rel="stylesheet" href="/static/styles.css?v=20260513-toeic-rush-1">
 </head>
 <body>
   <main class="shell">
@@ -746,6 +746,89 @@
         </aside>
       </div>
 
+      <div id="toeicRushView" class="arena hidden">
+        <div class="board-wrap english-board-wrap spi-rush-wrap">
+          <div class="english-topline">
+            <div class="stat-chip">
+              <span>分野</span>
+              <strong id="toeicRushCategoryLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>問題</span>
+              <strong id="toeicRushRoundLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>残り時間</span>
+              <strong id="toeicRushTimerLabel">-</strong>
+            </div>
+            <div class="stat-chip">
+              <span>トップ</span>
+              <strong id="toeicRushLeaderLabel">-</strong>
+            </div>
+          </div>
+
+          <div class="english-question-card spi-rush-question-card">
+            <p class="eyebrow">Question</p>
+            <div class="english-question-head">
+              <div id="toeicRushPhaseLabel" class="english-question-state">-</div>
+              <div id="toeicRushCountdownLabel" class="english-question-countdown">-</div>
+            </div>
+            <div class="english-question-meter">
+              <div id="toeicRushMeterFill" class="english-question-meter-fill"></div>
+            </div>
+            <div id="toeicRushPromptLabel" class="english-word spi-rush-prompt">-</div>
+            <p id="toeicRushExplanationLabel" class="microcopy">-</p>
+          </div>
+
+          <div id="toeicRushChoices" class="spi-rush-choices"></div>
+        </div>
+
+        <aside class="side-panel">
+          <div id="toeicRushStartPanel" class="panel-block hidden">
+            <p class="eyebrow">ゲーム開始</p>
+            <div class="english-settings-grid">
+              <label class="field">
+                <span>出題分野</span>
+                <select id="toeicRushCategoryInput">
+                  <option value="mixed">ミックス</option>
+                  <option value="vocabulary">語彙</option>
+                  <option value="grammar">文法</option>
+                  <option value="business">ビジネス</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>問題数</span>
+                <input id="toeicRushQuestionCountInput" type="number" min="5" max="30" step="1" value="12">
+              </label>
+              <label class="field">
+                <span>制限時間(秒)</span>
+                <input id="toeicRushTimeLimitInput" type="number" min="5" max="25" step="1" value="12">
+              </label>
+            </div>
+            <button id="toeicRushStartButton" class="primary">この設定で開始</button>
+            <p class="microcopy">TOEICの語彙・文法・ビジネス表現を、早押しで対戦練習できます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">操作</p>
+            <div class="action-grid">
+              <button id="toeicRushResignButton" class="danger">終了する</button>
+            </div>
+            <p class="microcopy">問題切り替えは部屋主が自動で進めます。ソロでもそのまま遊べます。</p>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">スコアボード</p>
+            <div id="toeicRushPlayersPanel" class="english-players-panel"></div>
+          </div>
+
+          <div class="panel-block">
+            <p class="eyebrow">対戦ログ</p>
+            <div id="toeicRushHistoryPanel" class="log-panel"></div>
+          </div>
+        </aside>
+      </div>
+
       <div id="fiveRulerView" class="arena hidden">
         <div class="board-wrap">
           <div class="english-topline">
@@ -997,7 +1080,7 @@
     </section>
   </main>
 
-    <script src="/static/app.js?v=20260430-spi-rush-1"></script>
+    <script src="/static/app.js?v=20260513-toeic-rush-1"></script>
     <script src="/static/the_grand.js?v=20260421-grand-turn-submit-bind-1"></script>
 </body>
 </html>

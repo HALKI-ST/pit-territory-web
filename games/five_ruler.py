@@ -85,7 +85,7 @@ class FiveRulerGame:
     max_players = 2
     player_label = "2人用"
     seat_order = list(SEAT_ORDER)
-    host_control_actions = {"start_match"}
+    host_control_actions = {"start_match", "set_setup_mode"}
     setup_mode = "full"
 
     def __init__(self) -> None:
@@ -147,7 +147,18 @@ class FiveRulerGame:
             self.rule_change_plans[symbol] = self._default_plan()
         self._refresh_waiting_message()
 
-    def apply_host_action(self, action: str, **_: object) -> None:
+    def apply_host_action(self, action: str, settings: Optional[dict] = None, **_: object) -> None:
+        if action == "set_setup_mode":
+            mode = str((settings or {}).get("setup_mode", "full"))
+            if mode not in {"full", "incremental"}:
+                raise GameError("開始方法の指定が不正です。")
+            self.setup_mode = mode
+            self.message = (
+                "2人そろいました。部屋主が開始すると全ルール指定で始まります。"
+                if mode == "full"
+                else "2人そろいました。部屋主が開始すると各ルール指定で始まります。"
+            )
+            return
         if action == "start_match":
             self.start_match()
             return
@@ -188,8 +199,12 @@ class FiveRulerGame:
             raise GameError("2人そろってから開始してください。")
         self.started = True
         self.game_over = False
-        self.phase = "setup"
-        self.message = "ルール改変の配置を8マスぶん決めてください。"
+        self.phase = "setup" if self.setup_mode == "full" else "waiting"
+        self.message = (
+            "ルール改変の配置を8マスぶん決めてください。"
+            if self.setup_mode == "full"
+            else "第1セットの準備を始めます。"
+        )
         self.winner_text = ""
         self.current_set = 0
         self.current_turn = 0
@@ -214,6 +229,8 @@ class FiveRulerGame:
             player.ready_trim = False
             player.resigned = False
             self.rule_change_plans[symbol] = self._default_plan()
+        if self.setup_mode == "incremental":
+            self._begin_set(1)
 
     def to_public_dict(self, viewer_symbol: str = "") -> dict:
         viewer_plan = self.rule_change_plans.get(viewer_symbol, {})
@@ -316,6 +333,9 @@ class FiveRulerGame:
         return rows
 
     def _submit_rule_plan(self, symbol: str, payload: dict) -> None:
+        if self.setup_mode == "incremental":
+            self._submit_incremental_rule_plan(symbol, payload)
+            return
         if not self.started or self.phase != "setup":
             raise GameError("今はルール改変の配置フェーズではありません。")
         entries = payload.get("entries")
@@ -358,6 +378,46 @@ class FiveRulerGame:
             self.message = "もう一人の配置確定を待っています。"
 
     def _begin_set(self, set_number: int) -> None:
+        if self.setup_mode == "incremental":
+            self.current_set = set_number
+            self.current_turn = 0
+            self.turn_submissions = {}
+            self.set_turn_wins = {symbol: 0 for symbol in self.joined_symbols()}
+            self.last_set_result = None
+            self.last_turn_result = None
+            self.revealed_changes = []
+            self.discard_pile = []
+            for symbol in self.joined_symbols():
+                self.players[symbol].selected_cards = []
+                self.players[symbol].ready_carry = False
+                self.players[symbol].ready_trim = False
+
+            if set_number > 1:
+                self._apply_rule_changes_for_set(set_number)
+                total_sets = self._active_rules()["set_count"]
+                if total_sets < self.current_set:
+                    self._resolve_set_count_collapse()
+                    return
+
+            if self._deal_new_hands():
+                self.phase = "trim"
+                self.message = f"第{self.current_set}セットの手札が上限を超えています。残すカードを選んでください。"
+                return
+
+            next_planning_set = self._next_planning_set()
+            if next_planning_set is not None:
+                self.phase = "setup"
+                self.message = f"第{self.current_set}セットの手札が配られました。第{next_planning_set}セットぶんの改変を1つ選んでください。"
+                return
+
+            if self._active_rules()["turns_per_set"] <= 0:
+                self.activity_log.append(f"第{self.current_set}セットはターン数0のため即終了しました。")
+                self._finish_set()
+                return
+
+            self._enter_set_action_phase()
+            return
+
         self.current_set = set_number
         self.current_turn = 0
         self.turn_submissions = {}
@@ -507,7 +567,67 @@ class FiveRulerGame:
         self.message = f"第{self.current_set}セット開始。手札からカードを出してください。"
 
     def _resume_after_trim(self) -> None:
+        if self.setup_mode == "incremental":
+            next_planning_set = self._next_planning_set()
+            if next_planning_set is not None:
+                self.phase = "setup"
+                self.message = f"第{self.current_set}セットの手札が配られました。第{next_planning_set}セットぶんの改変を1つ選んでください。"
+                return
         self._enter_set_action_phase()
+
+    def _submit_incremental_rule_plan(self, symbol: str, payload: dict) -> None:
+        if not self.started or self.phase != "setup":
+            raise GameError("今は次セットぶんのルール改変を決めるフェーズではありません。")
+        planning_set = self._next_planning_set()
+        if planning_set is None:
+            raise GameError("これ以上先のセットに改変を置けません。")
+
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            raise GameError("改変内容が不正です。")
+        entry = next((raw for raw in entries if int(raw.get("set_number", 0)) == planning_set), None)
+        if entry is None:
+            raise GameError(f"第{planning_set}セットぶんの改変を選んでください。")
+
+        slot_key = str(entry.get("slot_key", ""))
+        card_value = int(entry.get("card_value", 0))
+        if slot_key not in SLOT_ORDER:
+            raise GameError("変更先ルールが不正です。")
+        if card_value not in CARD_VALUES:
+            raise GameError("改変カードは2から9を1回ずつ使ってください。")
+
+        used_slots = set()
+        used_values = set()
+        for set_number in SET_SEQUENCE:
+            if set_number == planning_set:
+                continue
+            planned = self.rule_change_plans[symbol].get(set_number)
+            if not planned or planned.get("slot_key") is None or planned.get("card_value") is None:
+                continue
+            used_slots.add(planned["slot_key"])
+            used_values.add(planned["card_value"])
+
+        if slot_key in used_slots:
+            raise GameError("そのルール枠はすでに別セットで使っています。")
+        if card_value in used_values:
+            raise GameError("その数字カードはすでに別セットで使っています。")
+
+        self.rule_change_plans[symbol][planning_set] = {
+            "set_number": planning_set,
+            "slot_key": slot_key,
+            "card_value": card_value,
+            "revealed": False,
+        }
+        self.players[symbol].ready_setup = True
+        self.activity_log.append(f"{self.players[symbol].name} が第{planning_set}セットぶんの改変を確定しました。")
+
+        if all(self.players[s].ready_setup for s in self.joined_symbols()):
+            for player_symbol in self.joined_symbols():
+                self.players[player_symbol].ready_setup = False
+            self.phase = "battle"
+            self.message = f"第{self.current_set}セット開始。手札からカードを出してください。"
+        else:
+            self.message = "もう一人の改変確定を待っています。"
 
     def _submit_turn_cards(self, symbol: str, selected_cards: List[int]) -> None:
         if not self.started or self.phase != "battle":
@@ -916,6 +1036,46 @@ class FiveRuler2Game(FiveRulerGame):
             self.message = f"もう一人の第{planning_set}セットぶん改変確定を待っています。"
 
     def _begin_set(self, set_number: int) -> None:
+        if self.setup_mode == "incremental":
+            self.current_set = set_number
+            self.current_turn = 0
+            self.turn_submissions = {}
+            self.set_turn_wins = {symbol: 0 for symbol in self.joined_symbols()}
+            self.last_set_result = None
+            self.last_turn_result = None
+            self.revealed_changes = []
+            self.discard_pile = []
+            for symbol in self.joined_symbols():
+                self.players[symbol].selected_cards = []
+                self.players[symbol].ready_carry = False
+                self.players[symbol].ready_trim = False
+
+            if set_number > 1:
+                self._apply_rule_changes_for_set(set_number)
+                total_sets = self._active_rules()["set_count"]
+                if total_sets < self.current_set:
+                    self._resolve_set_count_collapse()
+                    return
+
+            if self._deal_new_hands():
+                self.phase = "trim"
+                self.message = f"第{self.current_set}セットの手札が上限を超えています。残すカードを選んでください。"
+                return
+
+            next_planning_set = self._next_planning_set()
+            if next_planning_set is not None:
+                self.phase = "setup"
+                self.message = f"第{self.current_set}セットの手札が配られました。第{next_planning_set}セットぶんの改変を1つ選んでください。"
+                return
+
+            if self._active_rules()["turns_per_set"] <= 0:
+                self.activity_log.append(f"第{self.current_set}セットはターン数0のため即終了しました。")
+                self._finish_set()
+                return
+
+            self._enter_set_action_phase()
+            return
+
         self.current_set = set_number
         self.current_turn = 0
         self.turn_submissions = {}

@@ -102,11 +102,72 @@
       berserker: { small: "戦闘力分", medium: "なし", large: "範囲拡張" },
       beastmaster: { small: "4", medium: "なし", large: "召喚" },
     };
+    const effectMap = {
+      speed_star: {
+        small: "指定方向へ最大10マス走る移動技です。攻撃判定はなく、地形を見ながら一気に距離を詰めるために使います。",
+        medium: "指定方向へ最大10マス走り、移動中に敵と同じマスへ重なるたびに戦闘力/5ダメージを与えます。",
+        large: "指定方向へ長距離突進します。進行線で重なった相手は撃破し、進行線の左右1〜2マスにいる相手へは戦闘力/2ダメージを与えます。",
+      },
+      spiritualist: {
+        small: "このセット中、味方全員の視界を共有します。味方の誰かが見た敵や地形は、全体マップと自分の視界にも反映されます。",
+        medium: "残っている敵から1体を指定します。指定された相手は、次にその相手自身の手番が来たとき行動できません。",
+        large: "ゴーストを1体落とし、一番近い敵へ毎ターン2マスずつ追尾させます。ゴーストは敵・味方・旗に当たると100ダメージを与え、その場で消えます。",
+      },
+      archer: {
+        small: "このターンの移動中、視界に新しく入った敵へ1歩ごとに1ダメージを与えます。同じ敵を見続けるほど削れます。",
+        medium: "移動せずに照準を合わせます。次にアチャ爺の手番が来るまで、補足済みで10マス以内にいる敵が動くたびに2ダメージを与えます。",
+        large: "狙点を選ぶと、そこを通って盤面端まで直線が伸びます。その直線上で一番近い相手に基本必殺ダメージを与えます。",
+      },
+      soldier: {
+        small: "移動中も含め、八方向1マスに入った最初の相手1体だけを斬ります。1回当てた後は、そのターン中はもう追加で発動しません。",
+        medium: "視界内にいる味方全員を1回復します。自分は対象外で、サウザンド・アイ中は共有視界に入った味方も回復対象になります。",
+        large: "現在戦闘力が5以下のときだけ発動できます。発動中は戦闘力30、行動力15になり、雑兵から一気に切り札へ変わります。",
+      },
+      leader: {
+        small: "このターン中、新しく視界へ入った敵だけを1回ずつ射撃します。味方は撃たず、同じ敵を同ターンに撃ち直すことはありません。",
+        medium: "残りターンの行動順をターンごとに組み直します。同じ味方を連続で何回入れても構いません。",
+        large: "現存している味方の位置を基準に、誰を誰の位置へ送るかを同時に指定します。全員集合も分散もできます。",
+      },
+      saint: {
+        small: "次に自分の番が来るまで完全反射状態になります。受けるはずだったダメージは自分ではなく相手へ返ります。",
+        medium: "戦闘力が満タンではない味方1体をランダムに選び、3回復します。全員満タンなら不発です。",
+        large: "このセット中、アリアを操作している間だけ全視界を開放します。敵位置とコイン位置も含めて全体マップを把握できます。",
+      },
+      psychic: {
+        small: "移動せず、自分中心の半径5マス以内にいる相手全員へ3ダメージを与えます。自分だけは1ダメージを受けます。",
+        medium: "壁の中には入れない完全ランダムテレポートです。旗の上には着地できます。",
+        large: "自分以外の全ユニットへ距離に応じた範囲ダメージを与えます。10マス以内は5、20マス以内は3、それ以外は1ダメージです。",
+      },
+      samurai: {
+        small: "自分中心の3マス圏に斬撃を飛ばし、その範囲にいる相手へ戦闘力/3ダメージを与えます。",
+        medium: "次に自分の番が来るまで、視界に入ってきた相手へ戦闘力/2の斬撃を返し続けます。",
+        large: "次に自分の番が来るまで迎撃態勢です。近づくほとんどすべてを弾き、侵入した相手は撃破します。",
+      },
+      berserker: {
+        small: "自分と同じマスに重なった相手だけを噛み砕きます。最初の攻撃範囲は自分のマス1つ分だけです。",
+        medium: "戦闘力を5消費して、移動上限を永続的に+1します。バーサークと同じく重ねがけでさらに伸びます。",
+        large: "戦闘力を半分支払い、捕食範囲を1段階広げます。重ねがけすると半径がどんどん広がっていきます。",
+      },
+      beastmaster: {
+        small: "獅子に乗って最大10マス進みます。移動先で敵と重なったマスごとに4ダメージを与えます。",
+        medium: "その時点の敵位置を鳥が教えてくれます。何セット目・何ターン目の情報かを付けて全体マップに残します。",
+        large: "戦闘力1、探知力2、行動力20のハムスターを召喚します。以後はメイとハムスターを切り替えて操作できます。",
+      },
+    };
+    const noRangeSet = new Set([
+      "spiritualist:medium",
+      "spiritualist:large",
+      "soldier:large",
+      "berserker:medium",
+      "beastmaster:medium",
+      "beastmaster:large",
+    ]);
     return {
       ...skill,
       movementType: movementMap[entry.key]?.[tier] || "通常移動しながら使える",
       attackPower: attackMap[entry.key]?.[tier] || "なし",
-      effectText: skill.description || "",
+      effectText: effectMap[entry.key]?.[tier] || skill.description || "",
+      showRange: !noRangeSet.has(`${entry.key}:${tier}`),
     };
   }
 
@@ -118,7 +179,9 @@
     const marks = new Map();
     const mark = (x, y, cls) => marks.set(`${x},${y}`, cls);
     mark(center, center, "origin");
-    if (entry.key === "speed_star" && tier === "large") {
+    if (entry.key === "berserker" && tier === "small") {
+      mark(center, center, "danger");
+    } else if (entry.key === "speed_star" && tier === "large") {
       for (let x = center + 1; x < size; x += 1) {
         mark(x, center, "danger");
         if (center - 1 >= 0) mark(x, center - 1, "splash");
@@ -234,8 +297,7 @@
     if (movementType(actor) === "immobile") return 0;
     if (actor.character_key === "speed_star" && ["small", "medium"].includes(tier)) return 10;
     if (actor.character_key === "beastmaster" && tier === "small") return 10;
-    if (actor.character_key === "berserker" && tier === "medium") return actor.move * 2;
-    return actor.move;
+        return actor.move;
   }
 
   function currentActor(game) {
@@ -474,6 +536,7 @@
     const boardSize = Number(game.board_size || 50);
     const group = 2;
     const miniSize = Math.ceil(boardSize / group);
+    const viewerTeam = game.viewer_symbol || "";
     const knownFloor = new Set((game.known_floor || []).map((cell) => `${cell[0]},${cell[1]}`));
     const knownWalls = new Set((game.known_walls || []).map((cell) => `${cell[0]},${cell[1]}`));
     const visibleCells = new Set((game.visible_cells || []).map((cell) => `${cell[0]},${cell[1]}`));
@@ -507,6 +570,7 @@
             });
             units.forEach((unit) => {
               if (unit.cell[0] === x && unit.cell[1] === y) {
+                if (viewerTeam && unit.team !== viewerTeam && !visibleCells.has(key)) return;
                 if (unit.team === "A") hasUnitA = true;
                 if (unit.team === "B") hasUnitB = true;
                 if (unit.id === activeActorId && unit.team === "A") hasFocusA = true;
@@ -556,7 +620,8 @@
 
     const board = (viewport.cells || []).map((cell) => {
       const key = `${cell[0]},${cell[1]}`;
-      const unit = units.get(key);
+      const rawUnit = units.get(key);
+      const unit = rawUnit && (!actor || rawUnit.owner === actor.owner || visible.has(key)) ? rawUnit : null;
       const flag = flags.get(key);
       const floorClass = (cell[0] + cell[1]) % 2 === 0 ? "is-floor-a" : "is-floor-b";
       const classes = [
@@ -571,7 +636,7 @@
       ].filter(Boolean).join(" ");
       return `
         <button type="button" class="${classes}" data-grand-cell="${cell[0]},${cell[1]}" ${(reachable.has(key) || targetMode) ? "" : "disabled"}>
-          ${flag ? `<span class="grand2-flag team-${String(flag.team).toLowerCase()}">⚑</span>` : ""}
+          ${flag ? `<span class="grand2-flag team-${String(flag.team).toLowerCase()}">🚩</span>` : ""}
           ${unit ? `<img src="${spritePath(unit.character_key)}" alt="${escapeHtml(unit.name)}" class="grand2-unit-sprite">` : ""}
         </button>
       `;
@@ -594,16 +659,18 @@
             <p><b>攻撃力</b> ${escapeHtml(spec.attackPower)}</p>
           </div>
           <p class="grand2-copy"><b>説明</b> ${escapeHtml(spec.effectText)}</p>
-          <div class="grand2-reference-split">
-            <div>
-              <p class="grand2-copy"><b>効果範囲</b></p>
-              ${diagram.html}
+          ${spec.showRange ? `
+            <div class="grand2-reference-split">
+              <div>
+                <p class="grand2-copy"><b>効果範囲</b></p>
+                ${diagram.html}
+              </div>
+              <div>
+                <p class="grand2-copy"><b>図の見方</b></p>
+                <p class="grand2-copy">${escapeHtml(diagram.legend)}</p>
+              </div>
             </div>
-            <div>
-              <p class="grand2-copy"><b>図の見方</b></p>
-              <p class="grand2-copy">${escapeHtml(diagram.legend)}</p>
-            </div>
-          </div>
+          ` : ""}
         </article>
       `;
     }).join("");
@@ -810,25 +877,9 @@
     });
   }
 
-  function renderOld(game) {
-    root.innerHTML = `
-      <div class="grand2-phase">
-        <section class="grand2-panel">
-          <p class="grand2-eyebrow">旧版</p>
-          <h3>旧 The Grand</h3>
-          <p class="grand2-copy">${escapeHtml(game.message || "旧版は保管用です。")}</p>
-        </section>
-      </div>
-    `;
-  }
-
   window.renderGrandGame = function renderGrandGame(game) {
     if (!root) return;
     root.classList.remove("hidden");
-    if (game.game_type === "the_grand_old") {
-      renderOld(game);
-      return;
-    }
     if (game.phase === "waiting") {
       renderWaiting(game);
       return;

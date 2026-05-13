@@ -149,7 +149,7 @@ CHARACTERS: Dict[str, CharacterDef] = {
         2,
         "自傷強化で捕食圏を広げる怪物。",
         SkillDef("ホショク", 1, "捕食圏内の相手へ戦闘力ダメージ。"),
-        SkillDef("シュンソク", 2, "戦闘力5消費で移動量を倍にする。"),
+        SkillDef("シュンソク", 2, "戦闘力5消費で移動上限を永続的に+1する。"),
         SkillDef("バーサーク", 3, "戦闘力を半減し、捕食圏を1広げる。"),
     ),
     "beastmaster": CharacterDef(
@@ -813,11 +813,14 @@ class TheGrandGame:
                 targets.append(unit)
         return targets
 
-    def _damage_flag_at(self, attacker: UnitState, cell: Cell, label: str) -> None:
+    def _damage_flag_at(self, attacker: UnitState, cell: Cell, label: str) -> bool:
+        destroyed = False
         for flag in self.flags.values():
             if flag.alive and flag.team != attacker.owner and flag.cell == cell:
                 flag.alive = False
                 self.round_notices.append(f"{label}: {TEAM_NAMES[flag.team]} の旗が破壊されました。")
+                destroyed = True
+        return destroyed
 
     def _capture_flags_on_overlap(self, attacker: UnitState) -> None:
         for flag in self.flags.values():
@@ -868,10 +871,14 @@ class TheGrandGame:
                 if next_cell == ghost.cell:
                     break
                 ghost.cell = next_cell
-                self._damage_flag_at(ghost, ghost.cell, "ハンドレッド・ナイト")
+                hit = self._damage_flag_at(ghost, ghost.cell, "ハンドレッド・ナイト")
                 occupants = [unit for unit in self._units_at_cell(ghost.cell, source=ghost) if unit.character_key != "hundred_night"]
                 for occupant in occupants:
                     self._deal_damage(occupant, 100, "ハンドレッド・ナイト", attacker=ghost)
+                    hit = True
+                if hit:
+                    ghost.alive = False
+                    break
 
     def _expire_actor_states(self, actor: UnitState) -> None:
         self.reflect_units.pop(actor.id, None)
@@ -1083,8 +1090,8 @@ class TheGrandGame:
             return True
         if tier == "medium":
             actor.hp = max(1, actor.hp - 5)
-            actor.move_bonus += actor.base_move
-            self.round_notices.append("シュンソク: HP を 5 消費し、行動力を倍にしました。")
+            actor.move_bonus += 1
+            self.round_notices.append(f"シュンソク: HP を 5 消費し、行動力が永続的に +1 されました。現在 {actor.effective_move}。")
             return True
         actor.hp = max(1, actor.hp // 2)
         self.berserk_radius[actor.id] = int(self.berserk_radius.get(actor.id, 0)) + 1
@@ -1149,8 +1156,6 @@ class TheGrandGame:
             return 0
         if actor.character_key == "speed_star" and tier in {"small", "medium"}:
             return 10
-        if actor.character_key == "berserker" and tier == "medium":
-            return actor.effective_move * 2
         if actor.character_key == "beastmaster" and tier == "small":
             return 10
         if actor.character_key == "hamster":
@@ -1225,7 +1230,11 @@ class TheGrandGame:
             path: List[Cell] = list(payload.get("path") or [])
             skill_used = False
             if not blocked and tier:
-                skill_used = self._apply_skill(actor, tier, path, payload)
+                try:
+                    skill_used = self._apply_skill(actor, tier, path, payload)
+                except GameError as exc:
+                    self.round_notices.append(str(exc))
+                    blocked = True
 
             soldier_small_hit = False
             leader_seen_targets: Set[str] = set()
@@ -1339,7 +1348,11 @@ class TheGrandGame:
     def to_public_dict(self, viewer_symbol: str = "") -> dict:
         actor_id = self._current_actor_id(viewer_symbol) if viewer_symbol in TEAM_SYMBOLS else ""
         viewer_waiting = bool(viewer_symbol in self.pending_actions) and not self.result_ready
-        visible_cells = self._visible_cells_for_team(viewer_symbol) if viewer_symbol in TEAM_SYMBOLS else set()
+        actor_visible_cells: Set[Cell] = set()
+        if viewer_symbol in TEAM_SYMBOLS and actor_id:
+            actor = self.units.get(actor_id)
+            if actor is not None and actor.alive:
+                actor_visible_cells = self._visible_cells_for_actor(actor)
         known_floor = set(self.known_floor_by_team.get(viewer_symbol, set()))
         known_walls = set(self.known_walls_by_team.get(viewer_symbol, set()))
         known_coins = set(self.known_coins_by_team.get(viewer_symbol, set()))
@@ -1358,7 +1371,7 @@ class TheGrandGame:
         for unit_id, unit in self.units.items():
             if not unit.alive:
                 continue
-            if viewer_symbol in TEAM_SYMBOLS and unit.team != viewer_symbol and unit.cell not in visible_cells:
+            if viewer_symbol in TEAM_SYMBOLS and unit.team != viewer_symbol and unit.cell not in actor_visible_cells:
                 continue
             visible_units[unit_id] = unit.to_public_dict()
         return {
@@ -1402,7 +1415,7 @@ class TheGrandGame:
             "flags": {flag_id: flag.to_public_dict() for flag_id, flag in self.flags.items()},
             "walls": [list(cell) for cell in sorted(known_walls)],
             "coins": [list(cell) for cell in sorted(known_coins)],
-            "visible_cells": [list(cell) for cell in sorted(visible_cells)],
+            "visible_cells": [list(cell) for cell in sorted(actor_visible_cells)],
             "known_floor": [list(cell) for cell in sorted(known_floor)],
             "known_walls": [list(cell) for cell in sorted(known_walls)],
             "known_coins": [list(cell) for cell in sorted(known_coins)],

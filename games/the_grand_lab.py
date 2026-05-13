@@ -738,7 +738,10 @@ class TheGrandLabGame:
             return True
         if tier == "medium":
             actor.hp = max(1, actor.hp - 5)
-            self.last_result_lines.append(f"シュンソク: HPを5消費し、この検証では移動量を倍として扱います。現在 {actor.hp}。")
+            actor.move_bonus += 1
+            self.last_result_lines.append(
+                f"シュンソク: HPを5消費し、移動上限が永続的に+1されました。現在HP {actor.hp} / 行動力 {actor.effective_move}。"
+            )
             return True
         actor.hp = max(1, actor.hp // 2)
         self.lab_state["berserk_radius"] = int(self.lab_state.get("berserk_radius") or 0) + 1
@@ -806,6 +809,7 @@ class TheGrandLabGame:
                     ghost.cell = next_cell
                     if ghost.cell == target.cell:
                         self._deal_damage(target, 100, "ハンドレッド・ナイト", attacker=ghost)
+                        ghost.alive = False
                         break
 
     def _step_toward(self, origin: Cell, target: Cell) -> Cell:
@@ -949,8 +953,6 @@ class TheGrandLabGame:
             return 10
         if skill_tier == "medium" and actor.character_key == "speed_star":
             return 10
-        if skill_tier == "medium" and actor.character_key == "berserker":
-            return actor.effective_move * 2
         if skill_tier == "large" and actor.character_key == "speed_star":
             return self.board_size
         return actor.effective_move
@@ -1165,7 +1167,7 @@ class TheGrandLabGame:
             ("samurai", "medium"): "次の自分の番まで、視界に入った敵へ自動斬撃を飛ばす。",
             ("samurai", "large"): "次の自分の番まで迎撃態勢に入り、接近したほぼ全てを弾く。",
             ("berserker", "small"): "捕食半径内の敵へ大ダメージを与える。",
-            ("berserker", "medium"): "HP5を消費して移動量を倍にする。",
+            ("berserker", "medium"): "HP5を消費して移動上限を永続的に+1する。重ねがけでさらに伸びる。",
             ("berserker", "large"): "HP半減と引き換えに攻撃半径を累積で広げる。",
             ("beastmaster", "small"): "10マスまで移動し、移動先で重なった相手へ4ダメージを与える。",
             ("beastmaster", "medium"): "その時点の敵位置を聞き出し、そのセット中はマップへ記録する。",
@@ -1200,7 +1202,7 @@ class TheGrandLabGame:
             ("samurai", "medium"): "自分の視界内",
             ("samurai", "large"): "自分周囲1マスの侵入判定",
             ("berserker", "small"): "現在の捕食半径内",
-            ("berserker", "medium"): "自分自身",
+            ("berserker", "medium"): "自分自身（自己強化）",
             ("berserker", "large"): "自分自身",
             ("beastmaster", "small"): "移動した先で重なったマス",
             ("beastmaster", "medium"): "その時点の敵位置1点（記録表示）",
@@ -1235,7 +1237,7 @@ class TheGrandLabGame:
             ("samurai", "medium"): "待機中に視界へ入った敵へ自動で線が飛びます。",
             ("samurai", "large"): "自分周囲に迎撃結界があり、侵入したものを弾くイメージです。",
             ("berserker", "small"): "現在の捕食半径内に入った敵を噛み砕くイメージです。",
-            ("berserker", "medium"): "移動線が通常の2倍になるだけです。",
+            ("berserker", "medium"): "自分に強化が積まれ、以後の移動上限が1ずつ伸びていくイメージです。",
             ("berserker", "large"): "自分中心の攻撃円が使うたび1段広がります。",
             ("beastmaster", "small"): "移動した先のマスで相手と重なった瞬間にダメージが入るイメージです。",
             ("beastmaster", "medium"): "その時点の敵位置を聞き出し、別色の記録点としてマップに残すイメージです。",
@@ -1270,7 +1272,7 @@ class TheGrandLabGame:
             ("samurai", "medium"): "実装済み。次の自分の番まで視界侵入へ反応斬りします。",
             ("samurai", "large"): "実装済み。次の自分の番まで周囲1マス侵入へ迎撃します。",
             ("berserker", "small"): "実装済み。現在の捕食半径内へ戦闘力ぶんダメージです。",
-            ("berserker", "medium"): "実装済み。HP5消費で移動量倍として扱います。",
+            ("berserker", "medium"): "実装済み。HP5消費で移動上限を永続的に+1します。",
             ("berserker", "large"): "実装済み。HP半減と攻撃半径+1を累積させます。",
             ("beastmaster", "small"): "実装済み。移動先で重なった相手へ4ダメージです。",
             ("beastmaster", "medium"): "実装済み。記録時点ラベル付きで敵位置をマップへ残します。",
